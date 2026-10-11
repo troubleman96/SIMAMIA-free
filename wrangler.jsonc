@@ -1,0 +1,8 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "hudumadesk-tanzania-preview",
+  "compatibility_date": "2026-10-11",
+  "assets": {
+    "directory": "./out"
+  }
+}

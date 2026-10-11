@@ -1,51 +1,31 @@
-# Deployment
+# Build and Deployment Notes
 
-The starter deploys to Vercel out of the box, or anywhere Docker runs. `next.config.ts` sets `output: 'standalone'`, so production builds are optimized for self-hosting.
+## Static preview
 
-## Vercel (Recommended)
-
-1. Connect the repository to Vercel
-2. Add environment variables in the dashboard
-3. Deploy
-
-For other platforms, see the [Next.js deployment docs](https://nextjs.org/docs/app/getting-started/deploying).
-
-## Environment Variables for Production
-
-Ensure these are set in your deployment platform:
-
-- `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`
-- `CLERK_SECRET_KEY`
-- All `NEXT_PUBLIC_*` variables for client-side access
-- `SENTRY_*` variables if using error tracking
-
-Sentry source maps are uploaded automatically in CI.
-
-## Docker
-
-Two production-ready Dockerfiles are included: `Dockerfile` (Node.js) and `Dockerfile.bun` (Bun). Pass `NEXT_PUBLIC_*` variables as `--build-arg` at build time and runtime secrets via `-e` at run time.
-
-Build the image:
+The Next.js frontend exports a static site into `out/`:
 
 ```bash
-# Node.js
-docker build \
-  --build-arg NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_live_xxxxx \
-  -t shadcn-dashboard .
-
-# OR Bun
-docker build -f Dockerfile.bun \
-  --build-arg NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_live_xxxxx \
-  -t shadcn-dashboard .
+npm install
+npm run typecheck
+npm run build
 ```
 
-Run the container:
+`wrangler.jsonc` points static assets at `out/`. For a temporary public preview in an appropriately isolated environment, use:
 
 ```bash
-docker run -d -p 3000:3000 \
-  -e NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_live_xxxxx \
-  -e CLERK_SECRET_KEY=sk_live_xxxxx \
-  --restart unless-stopped \
-  --name shadcn-dashboard \
-  shadcn-dashboard
+npx --yes wrangler@4.102.0 deploy --temporary
 ```
+
+The temporary preview is unauthenticated: anyone with its public URL can open it. It is for demonstration only, must not contain real customer information, and is not a production hosting, identity or persistence setup. Check the temporary-preview expiry and claim instructions at deployment time.
+
+## Go reference API
+
+```bash
+cd api
+go test ./...
+go run .
+```
+
+The service listens on `:8080` (or `$PORT`) and exposes `/api/v1/health`, orders, customers, services, team and a derived read-only payments ledger. Its in-memory sample records reset on restart. The static preview is not connected to this API; deploying the `out/` directory does not deploy the Go service.
+
+For a real launch, separately host the Go service behind HTTPS, replace in-memory data with durable tenant-scoped storage, add authentication/authorization, rate controls, request logging, migrations, backups, secrets management, monitoring, privacy controls and fiscal/payment integrations. Restrict CORS to the actual application origin. See the [management guide](management-guide.md), [provider integration guide](integrations.md), [provider reference notes](provider-research.md) and [OpenAPI spec](../api/openapi.yaml).

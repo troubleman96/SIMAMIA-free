@@ -1,0 +1,11 @@
+# Provider Reference Notes
+
+Captured 11 October 2026 from the providers’ public developer documentation. These are implementation references, not a live connection or contractual promise; re-check current docs, pricing, account eligibility and terms before production.
+
+| Provider | Verified public details | Source |
+| --- | --- | --- |
+| SendAfrica | REST JSON API `https://api.sendafrica.online/v1`; `X-API-Key`; SMS submit endpoint `POST /v1/sms/`; accepted/success status does not establish handset delivery; signed delivery webhooks are the status source. The quickstart says Tanzania local numbers are normalized automatically. | [Introduction](https://docs.sendafrica.online), [quickstart](https://docs.sendafrica.online/getting-started), [API overview](https://docs.sendafrica.online/api), [webhooks](https://docs.sendafrica.online/api/webhooks) |
+| MailAfrica | `https://api.mailafrica.online`; outbound email endpoint `POST /api/outbound/emails`; `X-API-Key`; key is shown once; account verification precedes sending; docs describe 5 TZS per recipient, wallet billing and 2 messages/second. | [Introduction](https://docs.mailafrica.online), [quickstart](https://docs.mailafrica.online/quickstart), [outbound email](https://docs.mailafrica.online/outbound), [compliance](https://docs.mailafrica.online/compliance) |
+| Ngamia | OpenAI-compatible gateway `https://api.ngamia.cc/v1`; production key starts `ngm_…` and uses Bearer auth; discover enabled models with `GET /v1/models`; chat completions use `POST /v1/chat/completions`; cost and model catalog should be checked live. Chat completions use OpenAI response/error shapes, while several account endpoints use a separate standard envelope. | [Introduction](https://docs.ngamia.cc/introduction), [quickstart](https://docs.ngamia.cc/quickstart), [models](https://docs.ngamia.cc/models), [chat completions](https://docs.ngamia.cc/chat-completions) |
+
+Tanzania operational context cited in the [management guide](management-guide.md#8-evidence-and-references): Bank of Tanzania’s National Payment Systems Annual Report 2025 describes strong mobile-money usage; TRA documents EFD requirements; PDPC publishes the Personal Data Protection Act 2022. These sources support local workflow considerations only and do not replace the business’s tax/privacy advice.
