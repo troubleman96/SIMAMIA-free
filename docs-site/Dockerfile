@@ -5,7 +5,7 @@ COPY scripts ./scripts
 RUN bun install --frozen-lockfile
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN bun run build
+RUN node node_modules/next/dist/bin/next build
 
 FROM node:22-alpine AS runner
 WORKDIR /app
