@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 250" role="img" aria-label="Simamia">
+  <rect width="900" height="250" fill="#fff"/>
+  <text x="450" y="174" text-anchor="middle" fill="#0F766E"
+        font-family="'Bricolage Grotesque', 'Arial Black', sans-serif"
+        font-size="148" font-weight="900" letter-spacing="-3">Simami</text>
+  <!-- Custom final a glyph with the check forming its counter. -->
+  <g fill="#0F766E">
+    <path d="M735 64h34v112h-34v-13c-11 11-25 17-42 17-38 0-66-30-66-68s28-68 66-68c17 0 31 6 42 17V64Z"/>
+  </g>
+  <path d="m678 112 17 17 34-38" fill="none" stroke="#fff" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

@@ -1,7 +1,9 @@
 package main
 
 import (
+	"context"
 	"crypto/rand"
+	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -10,10 +12,13 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	_ "github.com/mattn/go-sqlite3"
 )
 
 type Record map[string]any
@@ -21,11 +26,71 @@ type Store struct {
 	mu       sync.RWMutex
 	tables   map[string][]Record
 	counters map[string]int
+	db       *sql.DB
 }
-type API struct{ store *Store }
+type API struct {
+	store       *Store
+	accountsURL string
+}
+type ownerSubContextKey struct{}
+
+func (a *API) authenticate(w http.ResponseWriter, r *http.Request, requestID string) (string, bool) {
+	if a.store.db == nil {
+		return "local-preview", true
+	}
+	header := r.Header.Get("Authorization")
+	token := strings.TrimSpace(strings.TrimPrefix(header, "Bearer "))
+	if token == "" || token == header {
+		a.fail(w, r, requestID, http.StatusUnauthorized, "UNAUTHORIZED", "Camel Accounts bearer token required", nil)
+		return "", false
+	}
+	issuer := a.accountsURL
+	if issuer == "" {
+		issuer = os.Getenv("CAMEL_ACCOUNTS_URL")
+	}
+	if issuer == "" {
+		issuer = "https://accounts.camelcreatives.com"
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 4*time.Second)
+	defer cancel()
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimRight(issuer, "/")+"/oauth/userinfo", nil)
+	if err != nil {
+		a.fail(w, r, requestID, http.StatusUnauthorized, "UNAUTHORIZED", "Invalid authentication", nil)
+		return "", false
+	}
+	request.Header.Set("Authorization", "Bearer "+token)
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		a.fail(w, r, requestID, http.StatusServiceUnavailable, "AUTH_UNAVAILABLE", "Camel Accounts could not be reached", nil)
+		return "", false
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		a.fail(w, r, requestID, http.StatusUnauthorized, "UNAUTHORIZED", "Camel Accounts token is invalid or expired", nil)
+		return "", false
+	}
+	var claims struct {
+		Sub  string `json:"sub"`
+		Data struct {
+			Sub string `json:"sub"`
+		} `json:"data"`
+	}
+	if err := json.NewDecoder(io.LimitReader(response.Body, 1<<20)).Decode(&claims); err != nil {
+		a.fail(w, r, requestID, http.StatusUnauthorized, "UNAUTHORIZED", "Invalid Camel Accounts identity response", nil)
+		return "", false
+	}
+	if claims.Sub == "" {
+		claims.Sub = claims.Data.Sub
+	}
+	if claims.Sub == "" {
+		a.fail(w, r, requestID, http.StatusUnauthorized, "UNAUTHORIZED", "Camel Accounts identity is missing", nil)
+		return "", false
+	}
+	return claims.Sub, true
+}
 
 func NewStore() *Store {
-	return &Store{tables: map[string][]Record{
+	store := &Store{tables: map[string][]Record{
 		"orders": {
 			{"id": "ORD-0248", "customer": "Demo Customer 01", "phone": "+255 700 000 001", "service": "Laundry · Express", "date": "2026-10-11T10:30:00+03:00", "amount": 48000, "paid": 48000, "currency": "TZS", "status": "In progress", "method": "M-Pesa", "assignee": "Demo Staff 01"},
 			{"id": "ORD-0247", "customer": "Demo Customer 02", "phone": "+255 700 000 002", "service": "AC maintenance", "date": "2026-10-11T09:00:00+03:00", "amount": 120000, "paid": 60000, "currency": "TZS", "status": "Ready", "method": "Mixx by Yas", "assignee": "Demo Staff 02"},
@@ -48,11 +113,130 @@ func NewStore() *Store {
 			{"id": "TM-02", "name": "Demo Staff 03", "role": "Technician", "phone": "+255 700 001 003", "active": true},
 			{"id": "TM-01", "name": "Demo Admin", "role": "Owner", "phone": "+255 700 001 004", "active": true},
 		},
+		"expenses":   {},
+		"businesses": {},
 	}, counters: map[string]int{"orders": 248, "customers": 86, "services": 2, "team": 4}}
+	for _, records := range store.tables {
+		for _, record := range records {
+			record["owner_sub"] = "local-preview"
+		}
+	}
+	return store
+}
+
+func OpenStore(path string) (*Store, error) {
+	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
+		return nil, fmt.Errorf("create database directory: %w", err)
+	}
+	db, err := sql.Open("sqlite3", "file:"+filepath.ToSlash(path)+"?_busy_timeout=5000&_journal_mode=WAL&_foreign_keys=on")
+	if err != nil {
+		return nil, fmt.Errorf("open database: %w", err)
+	}
+	db.SetMaxOpenConns(1)
+	if err := db.Ping(); err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("connect to database: %w", err)
+	}
+	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS records (
+		resource TEXT NOT NULL,
+		id TEXT NOT NULL,
+		payload TEXT NOT NULL,
+		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		PRIMARY KEY (resource, id)
+	)`); err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("initialize record storage: %w", err)
+	}
+
+	store := &Store{tables: make(map[string][]Record), counters: make(map[string]int), db: db}
+	for _, resource := range []string{"orders", "customers", "services", "team", "expenses", "businesses"} {
+		store.tables[resource] = []Record{}
+	}
+	rows, err := db.Query(`SELECT resource, id, payload FROM records ORDER BY rowid DESC`)
+	if err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("load records: %w", err)
+	}
+	for rows.Next() {
+		var resource, id, payload string
+		if err := rows.Scan(&resource, &id, &payload); err != nil {
+			_ = rows.Close()
+			_ = db.Close()
+			return nil, fmt.Errorf("read stored record: %w", err)
+		}
+		var record Record
+		if err := json.Unmarshal([]byte(payload), &record); err != nil {
+			_ = rows.Close()
+			_ = db.Close()
+			return nil, fmt.Errorf("decode stored %s record %s: %w", resource, id, err)
+		}
+		if _, known := store.tables[resource]; !known {
+			store.tables[resource] = []Record{}
+		}
+		store.tables[resource] = append(store.tables[resource], record)
+		if separator := strings.LastIndex(id, "-"); separator >= 0 {
+			if sequence, parseErr := strconv.Atoi(id[separator+1:]); parseErr == nil && sequence > store.counters[resource] {
+				store.counters[resource] = sequence
+			}
+		}
+	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		_ = db.Close()
+		return nil, fmt.Errorf("finish loading records: %w", err)
+	}
+	_ = rows.Close()
+	if len(store.tables["orders"])+len(store.tables["customers"])+len(store.tables["services"])+len(store.tables["team"]) == 0 {
+		seed := NewStore()
+		for resource, records := range seed.tables {
+			store.tables[resource] = records
+			store.counters[resource] = seed.counters[resource]
+			for i := len(records) - 1; i >= 0; i-- {
+				if err := store.insert(resource, records[i]); err != nil {
+					_ = db.Close()
+					return nil, fmt.Errorf("seed %s records: %w", resource, err)
+				}
+			}
+		}
+	}
+	return store, nil
+}
+
+func (s *Store) insert(resource string, record Record) error {
+	if s.db == nil {
+		return nil
+	}
+	payload, err := json.Marshal(record)
+	if err != nil {
+		return err
+	}
+	_, err = s.db.Exec(`INSERT INTO records (resource, id, payload) VALUES (?, ?, ?)`, resource, fmt.Sprint(record["id"]), string(payload))
+	return err
+}
+
+func (s *Store) replace(resource string, id string, record Record) error {
+	if s.db == nil {
+		return nil
+	}
+	payload, err := json.Marshal(record)
+	if err != nil {
+		return err
+	}
+	_, err = s.db.Exec(`UPDATE records SET payload = ?, updated_at = CURRENT_TIMESTAMP WHERE resource = ? AND id = ?`, string(payload), resource, id)
+	return err
+}
+
+func (s *Store) remove(resource string, id string) error {
+	if s.db == nil {
+		return nil
+	}
+	_, err := s.db.Exec(`DELETE FROM records WHERE resource = ? AND id = ?`, resource, id)
+	return err
 }
 
 func (a *API) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Access-Control-Allow-Origin", "*")
+	setCORSHeaders(w, r)
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Request-ID")
 	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
@@ -76,9 +260,14 @@ func (a *API) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			a.methodNotAllowed(w, r, requestID, "GET")
 			return
 		}
-		a.write(w, http.StatusOK, Record{"status": "ok", "service": "hudumadesk-api", "version": "v1", "time_zone": "Africa/Dar_es_Salaam", "currency": "TZS"}, requestID, nil)
+		a.write(w, http.StatusOK, Record{"status": "ok", "service": "simamia-api", "version": "v1", "time_zone": "Africa/Dar_es_Salaam", "currency": "TZS"}, requestID, nil)
 		return
 	}
+	ownerSub, ok := a.authenticate(w, r, requestID)
+	if !ok {
+		return
+	}
+	r = r.WithContext(context.WithValue(r.Context(), ownerSubContextKey{}, ownerSub))
 	resource := parts[2]
 	if resource == "payments" {
 		if len(parts) > 3 {
@@ -107,6 +296,27 @@ func (a *API) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	a.fail(w, r, requestID, http.StatusNotFound, "NOT_FOUND", "Endpoint not found", nil)
 }
 
+func setCORSHeaders(w http.ResponseWriter, r *http.Request) {
+	origin := r.Header.Get("Origin")
+	configured := strings.Split(os.Getenv("CORS_ALLOWED_ORIGINS"), ",")
+	if len(configured) == 1 && strings.TrimSpace(configured[0]) == "" {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		return
+	}
+	for _, allowed := range configured {
+		allowed = strings.TrimSpace(allowed)
+		if allowed == "*" {
+			w.Header().Set("Access-Control-Allow-Origin", "*")
+			return
+		}
+		if origin != "" && origin == allowed {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Add("Vary", "Origin")
+			return
+		}
+	}
+}
+
 func (a *API) collection(w http.ResponseWriter, r *http.Request, rid, resource string) {
 	switch r.Method {
 	case http.MethodGet:
@@ -125,6 +335,11 @@ func (a *API) collection(w http.ResponseWriter, r *http.Request, rid, resource s
 		defer a.store.mu.Unlock()
 		id := a.store.nextID(resource)
 		in["id"] = id
+		ownerSub := r.Context().Value(ownerSubContextKey{}).(string)
+		in["owner_sub"] = ownerSub
+		if resource == "businesses" {
+			in["ownerSub"] = ownerSub
+		}
 		if resource == "orders" {
 			if _, ok := in["currency"]; !ok {
 				in["currency"] = "TZS"
@@ -144,6 +359,10 @@ func (a *API) collection(w http.ResponseWriter, r *http.Request, rid, resource s
 				in["active"] = true
 			}
 		}
+		if err := a.store.insert(resource, in); err != nil {
+			a.fail(w, r, rid, http.StatusInternalServerError, "STORAGE_ERROR", "Could not save record", nil)
+			return
+		}
 		a.store.tables[resource] = append([]Record{in}, a.store.tables[resource]...)
 		a.write(w, http.StatusCreated, in, rid, nil)
 	default:
@@ -155,7 +374,7 @@ func (a *API) item(w http.ResponseWriter, r *http.Request, rid, resource, id str
 	case http.MethodGet:
 		a.store.mu.RLock()
 		defer a.store.mu.RUnlock()
-		if row := find(a.store.tables[resource], id); row != nil {
+		if row := findOwned(a.store.tables[resource], id, r.Context().Value(ownerSubContextKey{}).(string)); row != nil {
 			a.write(w, http.StatusOK, row, rid, nil)
 			return
 		}
@@ -167,18 +386,35 @@ func (a *API) item(w http.ResponseWriter, r *http.Request, rid, resource, id str
 			return
 		}
 		delete(patch, "id")
+		delete(patch, "owner_sub")
+		delete(patch, "ownerSub")
 		a.store.mu.Lock()
 		defer a.store.mu.Unlock()
+		ownerSub := r.Context().Value(ownerSubContextKey{}).(string)
 		for _, row := range a.store.tables[resource] {
-			if row["id"] == id {
-				for k, v := range patch {
-					row[k] = v
+			if row["id"] == id && row["owner_sub"] == ownerSub {
+				updated := make(Record, len(row)+len(patch))
+				for key, value := range row {
+					updated[key] = value
 				}
-				if err := validate(resource, row); err != nil {
+				for k, v := range patch {
+					updated[k] = v
+				}
+				if err := validate(resource, updated); err != nil {
 					a.fail(w, r, rid, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error(), nil)
 					return
 				}
-				a.write(w, http.StatusOK, row, rid, nil)
+				if err := a.store.replace(resource, id, updated); err != nil {
+					a.fail(w, r, rid, http.StatusInternalServerError, "STORAGE_ERROR", "Could not update record", nil)
+					return
+				}
+				for i, existing := range a.store.tables[resource] {
+					if existing["id"] == id {
+						a.store.tables[resource][i] = updated
+						break
+					}
+				}
+				a.write(w, http.StatusOK, updated, rid, nil)
 				return
 			}
 		}
@@ -187,8 +423,13 @@ func (a *API) item(w http.ResponseWriter, r *http.Request, rid, resource, id str
 		a.store.mu.Lock()
 		defer a.store.mu.Unlock()
 		rows := a.store.tables[resource]
+		ownerSub := r.Context().Value(ownerSubContextKey{}).(string)
 		for i, row := range rows {
-			if row["id"] == id {
+			if row["id"] == id && row["owner_sub"] == ownerSub {
+				if err := a.store.remove(resource, id); err != nil {
+					a.fail(w, r, rid, http.StatusInternalServerError, "STORAGE_ERROR", "Could not delete record", nil)
+					return
+				}
 				a.store.tables[resource] = append(rows[:i], rows[i+1:]...)
 				a.write(w, http.StatusOK, Record{"id": id, "deleted": true}, rid, nil)
 				return
@@ -211,7 +452,11 @@ func (a *API) list(w http.ResponseWriter, r *http.Request, rid, resource string)
 	rows := append([]Record(nil), a.store.tables[resource]...)
 	a.store.mu.RUnlock()
 	filtered := make([]Record, 0, len(rows))
+	ownerSub := r.Context().Value(ownerSubContextKey{}).(string)
 	for _, row := range rows {
+		if row["owner_sub"] != ownerSub {
+			continue
+		}
 		if status != "" && fmt.Sprint(row["status"]) != status {
 			continue
 		}
@@ -241,6 +486,9 @@ func (a *API) listPayments(w http.ResponseWriter, r *http.Request, rid string) {
 	a.store.mu.RUnlock()
 	out := make([]Record, 0, len(rows))
 	for _, o := range rows {
+		if o["owner_sub"] != r.Context().Value(ownerSubContextKey{}).(string) {
+			continue
+		}
 		amount := number(o["amount"])
 		paid := number(o["paid"])
 		out = append(out, Record{"id": "PAY-" + strings.TrimPrefix(fmt.Sprint(o["id"]), "ORD-"), "order_id": o["id"], "customer": o["customer"], "amount": amount, "paid": paid, "due": amount - paid, "currency": "TZS", "method": o["method"], "status": map[bool]string{true: "paid", false: "pending"}[paid >= amount]})
@@ -249,7 +497,7 @@ func (a *API) listPayments(w http.ResponseWriter, r *http.Request, rid string) {
 }
 func (s *Store) nextID(resource string) string {
 	s.counters[resource]++
-	prefix := map[string]string{"orders": "ORD", "customers": "CUS", "services": "SRV", "team": "TM"}[resource]
+	prefix := map[string]string{"orders": "ORD", "customers": "CUS", "services": "SRV", "team": "TM", "expenses": "EXP", "businesses": "BIZ"}[resource]
 	if resource == "services" {
 		return fmt.Sprintf("%s-%02d", prefix, s.counters[resource])
 	}
@@ -259,6 +507,14 @@ func find(rows []Record, id string) Record {
 	for _, r := range rows {
 		if r["id"] == id {
 			return r
+		}
+	}
+	return nil
+}
+func findOwned(rows []Record, id, ownerSub string) Record {
+	for _, row := range rows {
+		if row["id"] == id && row["owner_sub"] == ownerSub {
+			return row
 		}
 	}
 	return nil
@@ -279,15 +535,19 @@ func decodeBody(r *http.Request, dst *Record) error {
 	return nil
 }
 func validate(resource string, r Record) error {
-	required := map[string][]string{"customers": {"name", "phone"}, "orders": {"customer", "service", "amount"}, "services": {"name", "price"}, "team": {"name", "phone"}}[resource]
+	required := map[string][]string{"customers": {"name", "phone"}, "orders": {"customer", "service", "amount"}, "services": {"name", "price"}, "team": {"name", "phone"}, "expenses": {"description", "category", "amount", "date"}}[resource]
 	for _, k := range required {
 		v, ok := r[k]
 		if !ok || strings.TrimSpace(fmt.Sprint(v)) == "" {
 			return fmt.Errorf("%s is required", k)
 		}
 	}
-	if resource == "orders" || resource == "services" {
-		if number(r[map[bool]string{true: "amount", false: "price"}[resource == "orders"]]) <= 0 {
+	if resource == "orders" || resource == "services" || resource == "expenses" {
+		amountField := "price"
+		if resource == "orders" || resource == "expenses" {
+			amountField = "amount"
+		}
+		if number(r[amountField]) <= 0 {
 			return errors.New("amount must be greater than zero")
 		}
 	}
@@ -352,9 +612,26 @@ func main() {
 	if port == "" {
 		port = "8080"
 	}
-	api := &API{store: NewStore()}
+	databasePath := os.Getenv("SIMAMIA_DB_PATH")
+	if databasePath == "" {
+		databasePath = os.Getenv("HUDUMADESK_DB_PATH") // Backward compatibility for existing deployments.
+	}
+	if databasePath == "" {
+		databasePath = "data/simamia.db"
+		if _, err := os.Stat(databasePath); errors.Is(err, os.ErrNotExist) {
+			if _, legacyErr := os.Stat("data/hudumadesk.db"); legacyErr == nil {
+				databasePath = "data/hudumadesk.db"
+			}
+		}
+	}
+	store, err := OpenStore(databasePath)
+	if err != nil {
+		log.Fatalf("initialize Simamia storage: %v", err)
+	}
+	defer store.db.Close()
+	api := &API{store: store}
 	srv := &http.Server{Addr: "0.0.0.0:" + port, Handler: api, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 15 * time.Second, IdleTimeout: 60 * time.Second}
-	log.Printf("HudumaDesk API listening on :%s", port)
+	log.Printf("Simamia API listening on :%s", port)
 	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatal(err)
 	}

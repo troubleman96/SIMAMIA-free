@@ -1,16 +1,19 @@
 import type { Metadata, Viewport } from 'next';
 import { fontVariables } from '@/components/themes/font.config';
 import { Toaster } from '@/components/ui/sonner';
+import ThemeProvider from '@/components/themes/theme-provider';
+import { CamelAuthRoot } from '@/features/auth/components/camel-auth-screen';
+import { SimamiaAnalytics } from '@/features/auth/components/camel-analytics';
 import { cn } from '@/lib/utils';
 import '../styles/globals.css';
 
 export const metadata: Metadata = {
-  title: 'HudumaDesk — Huduma kwa mpangilio',
+  title: 'Simamia — Huduma kwa mpangilio',
   description: 'Kiswahili-first service management for Tanzanian businesses.',
   robots: { index: false, follow: false }
 };
 
-export const viewport: Viewport = { themeColor: '#ffffff' };
+export const viewport: Viewport = { themeColor: '#F8FAFC' };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
@@ -21,8 +24,18 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           fontVariables
         )}
       >
-        {children}
-        <Toaster />
+        <ThemeProvider
+          attribute='class'
+          defaultTheme='light'
+          enableSystem
+          disableTransitionOnChange
+        >
+          <CamelAuthRoot>
+            <SimamiaAnalytics />
+            {children}
+            <Toaster />
+          </CamelAuthRoot>
+        </ThemeProvider>
       </body>
     </html>
   );

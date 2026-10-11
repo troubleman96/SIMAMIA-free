@@ -1,0 +1,7 @@
+data/
+*.db
+*.db-shm
+*.db-wal
+*_test.go
+README.md
+openapi.yaml

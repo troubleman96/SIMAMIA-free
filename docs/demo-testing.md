@@ -1,10 +1,10 @@
-# HudumaDesk demo testing
+# Simamia development notes
 
 ## Live test instance
 
-The active session's UI and API addresses are supplied separately in the task handoff. The API is a standalone reference service, not a persistence backend for the dashboard. The UI's edits are browser-local; API requests mutate the Go service's in-memory demo store.
+The UI defaults to `http://localhost:8080/api/v1` (override with `NEXT_PUBLIC_SIMAMIA_API_URL`). When reachable, the dashboard loads and edits business, order, customer, service, team and expense records through the Go API's SQLite store. Data routes require a Camel Accounts access token and are scoped to its subject. If the API cannot be reached during initial load, the UI falls back to browser-local sample data. SMS, email, mobile money processing and AI provider calls remain unimplemented.
 
-**Safety:** the API is unauthenticated and writable by anyone who can reach it. It contains only fabricated records, and its state resets when the API process restarts. Do not enter real customer information, credentials, or payment details. Payments are a read-only ledger derived from orders; there is no payment processing.
+**Data model:** SQLite state persists across API restarts in `api/data/simamia.db`. The API checks Camel Accounts userinfo before serving data routes; `/health` is public. Existing rows without an owner are not assigned to a user. Payments remain a read-only balance ledger derived from order totals; there is no payment processing.
 
 ## Local startup
 
@@ -19,7 +19,7 @@ go run .
 Start the UI in another terminal:
 
 ```bash
-NEXT_PUBLIC_HUDUMADESK_API_URL=http://localhost:8080/api/v1 npm run dev -- --hostname 0.0.0.0
+NEXT_PUBLIC_SIMAMIA_API_URL=http://localhost:8080/api/v1 npm run dev -- --hostname 0.0.0.0
 ```
 
 Open `http://localhost:3000`, then choose **API & docs** to see whether the configured API is reachable. The dashboard's sample data remains local to the browser; use the API's REST endpoints to test backend workflows.
@@ -61,7 +61,7 @@ curl -sS -X PATCH "$API_BASE/orders/ORD-0248" \
 curl -sS "$API_BASE/payments"
 ```
 
-Use `DELETE "$API_BASE/orders/<id>"` only with a demo record. Since the API store is shared and in-memory, destructive test requests affect other testers until restart.
+Use `DELETE "$API_BASE/orders/<id>"` only with a demo record. The API store is shared and persistent, so destructive requests affect every API user until the record is recreated or the local database is intentionally reset.
 
 ## Supported endpoints
 

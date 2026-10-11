@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://simamia.online/sitemap.xml

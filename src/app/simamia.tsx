@@ -2,7 +2,19 @@
 
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { Icons } from '@/components/icons';
+import { ThemeModeToggle } from '@/components/themes/theme-mode-toggle';
+import { CamelAuthScreen, useSimamiaAuth } from '@/features/auth/components/camel-auth-screen';
+import {
+  BusinessSetup,
+  type SimamiaBusinessProfile
+} from '@/features/onboarding/components/business-setup';
+import {
+  businessTemplates,
+  getBusinessTemplate,
+  type WorkflowField
+} from '@/features/onboarding/business-templates';
 import PageContainer from '@/components/layout/page-container';
+import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -51,7 +63,7 @@ import {
 import { toast } from 'sonner';
 
 type Lang = 'sw' | 'en';
-type Status = 'New' | 'In progress' | 'Ready' | 'Completed' | 'Cancelled';
+type Status = string;
 type Page =
   | 'overview'
   | 'orders'
@@ -60,6 +72,9 @@ type Page =
   | 'schedule'
   | 'team'
   | 'payments'
+  | 'debts'
+  | 'expenses'
+  | 'invoices'
   | 'reports'
   | 'messages'
   | 'assistant'
@@ -77,6 +92,9 @@ type Order = {
   status: Status;
   method: string;
   assignee: string;
+  paymentType?: string;
+  templateId?: string;
+  customFields?: Record<string, string>;
 };
 type Customer = {
   id: string;
@@ -97,7 +115,94 @@ type Service = {
   active: boolean;
 };
 type Staff = { id: string; name: string; role: string; phone: string; active: boolean };
-type FormKind = 'order' | 'customer' | 'service' | 'staff' | 'payment' | 'message' | null;
+type Expense = {
+  id: string;
+  description: string;
+  category: string;
+  amount: number;
+  date: string;
+  method: string;
+  vendor: string;
+  notes: string;
+};
+type FormKind =
+  | 'order'
+  | 'customer'
+  | 'service'
+  | 'staff'
+  | 'payment'
+  | 'expense'
+  | 'message'
+  | null;
+
+const API_BASE_URL = (
+  process.env.NEXT_PUBLIC_SIMAMIA_API_URL ||
+  process.env.NEXT_PUBLIC_HUDUMADESK_API_URL ||
+  'http://localhost:8080/api/v1'
+).replace(/\/+$/, '');
+
+function readWorkspaceCache(kind: 'prefs' | 'demo', accountKey: string): string | null {
+  const currentKey = `simamia-${kind}:${accountKey}`;
+  const currentValue = localStorage.getItem(currentKey);
+  if (currentValue !== null) return currentValue;
+  const legacyKey = `hudumadesk-${kind}:${accountKey}`;
+  const legacyValue = localStorage.getItem(legacyKey);
+  if (legacyValue !== null) {
+    localStorage.setItem(currentKey, legacyValue);
+    localStorage.removeItem(legacyKey);
+  }
+  return legacyValue;
+}
+
+async function fetchApiRecords<T>(resource: string, accessToken: string | null): Promise<T[]> {
+  if (!accessToken) throw new Error('Sign in to load workspace data');
+  const response = await fetch(`${API_BASE_URL}/${resource}`, {
+    cache: 'no-store',
+    headers: { Authorization: `Bearer ${accessToken}` }
+  });
+  const payload = (await response.json()) as { data?: T[]; error?: { message?: string } };
+  if (!response.ok || !Array.isArray(payload.data)) {
+    throw new Error(payload.error?.message || `Unable to load ${resource}`);
+  }
+  return payload.data;
+}
+
+async function createApiRecord<T>(
+  resource: string,
+  values: Record<string, unknown>,
+  accessToken: string | null
+): Promise<T> {
+  if (!accessToken) throw new Error('Sign in to save workspace data');
+  const response = await fetch(`${API_BASE_URL}/${resource}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+    body: JSON.stringify(values)
+  });
+  const payload = (await response.json()) as { data?: T; error?: { message?: string } };
+  if (!response.ok || !payload.data) {
+    throw new Error(payload.error?.message || `Unable to create ${resource}`);
+  }
+  return payload.data;
+}
+
+async function updateApiRecord<T>(
+  resource: string,
+  id: string,
+  values: Record<string, unknown>,
+  accessToken: string | null
+): Promise<T> {
+  if (!accessToken) throw new Error('Sign in to update workspace data');
+  const response = await fetch(`${API_BASE_URL}/${resource}/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+    body: JSON.stringify(values)
+  });
+  const payload = (await response.json()) as { data?: T; error?: { message?: string } };
+  if (!response.ok || !payload.data) {
+    throw new Error(payload.error?.message || `Unable to update ${resource}`);
+  }
+  return payload.data;
+}
 
 const seedOrders: Order[] = [
   {
@@ -379,6 +484,9 @@ const words = {
     schedule: 'Ratiba',
     team: 'Timu',
     payments: 'Malipo',
+    debts: 'Madeni',
+    expenses: 'Matumizi',
+    invoices: 'Ankara',
     reports: 'Ripoti',
     messages: 'Ujumbe',
     assistant: 'Msaidizi AI',
@@ -397,6 +505,9 @@ const words = {
     scheduleDesc: 'Panga kazi na mgawo wa timu.',
     teamDesc: 'Simamia watu wanaotoa huduma.',
     paymentsDesc: 'Fuatilia malipo na salio la maagizo.',
+    debtsDesc: 'Fuatilia salio linalodaiwa kwa wateja na maagizo.',
+    expensesDesc: 'Rekodi na pitia matumizi ya biashara.',
+    invoicesDesc: 'Unda na uchapishe ankara za maagizo ya huduma.',
     reportsDesc: 'Muhtasari wa biashara na mauzo.',
     messagesDesc: 'Andaa ujumbe wa wateja.',
     assistantDesc: 'Majibu ya haraka kuhusu biashara yako.',
@@ -466,6 +577,9 @@ const words = {
     schedule: 'Schedule',
     team: 'Team',
     payments: 'Payments',
+    debts: 'Debts',
+    expenses: 'Expenses',
+    invoices: 'Invoices',
     reports: 'Reports',
     messages: 'Messages',
     assistant: 'AI assistant',
@@ -484,6 +598,9 @@ const words = {
     scheduleDesc: 'Plan work and assign your team.',
     teamDesc: 'Manage the people delivering services.',
     paymentsDesc: 'Track payments and outstanding balances.',
+    debtsDesc: 'Track outstanding balances by customer and order.',
+    expensesDesc: 'Record and review business expenses.',
+    invoicesDesc: 'Create and print invoices for service orders.',
     reportsDesc: 'Business and sales summaries.',
     messagesDesc: 'Prepare customer messages.',
     assistantDesc: 'Quick answers about your business.',
@@ -559,6 +676,9 @@ const menu: {
   { section: 'work', page: 'schedule', icon: 'calendar' },
   { section: 'manage', page: 'team', icon: 'teams' },
   { section: 'manage', page: 'payments', icon: 'creditCard' },
+  { section: 'manage', page: 'debts', icon: 'clock' },
+  { section: 'manage', page: 'expenses', icon: 'trendingDown' },
+  { section: 'manage', page: 'invoices', icon: 'fileTypeDoc' },
   { section: 'manage', page: 'reports', icon: 'trendingUp' },
   { section: 'grow', page: 'messages', icon: 'chat' },
   { section: 'grow', page: 'assistant', icon: 'sparkles' },
@@ -566,41 +686,94 @@ const menu: {
   { section: 'system', page: 'api', icon: 'code' },
   { section: 'system', page: 'settings', icon: 'settings' }
 ];
-const pages: Page[] = [
-  'overview',
-  'orders',
-  'customers',
-  'services',
-  'schedule',
-  'team',
-  'payments',
-  'reports',
-  'messages',
-  'assistant',
-  'integrations',
-  'api',
-  'settings'
-];
-const statuses: Status[] = ['New', 'In progress', 'Ready', 'Completed', 'Cancelled'];
-const statusSw: Record<Status, string> = {
+const defaultStatuses: Status[] = ['New', 'In progress', 'Ready', 'Completed', 'Cancelled'];
+const statusSw: Record<string, string> = {
   New: 'Jipya',
   'In progress': 'Inaendelea',
   Ready: 'Tayari',
   Completed: 'Imekamilika',
   Cancelled: 'Imeghairiwa'
 };
+const statusLabel = (status: string, lang: Lang) => {
+  if (lang === 'en') return status;
+  for (const template of businessTemplates) {
+    if (template.statusLabelsSw[status]) return template.statusLabelsSw[status];
+  }
+  return statusSw[status] ?? status;
+};
 const money = (n: number) =>
   `TZS ${new Intl.NumberFormat('en-TZ', { maximumFractionDigits: 0 }).format(n)}`;
+function downloadOrdersCsv(exportRows: Order[]) {
+  const rows = [
+    ['Order', 'Customer', 'Phone', 'Service', 'Date', 'Amount TZS', 'Paid TZS', 'Status'],
+    ...exportRows.map((item) => [
+      item.id,
+      item.customer,
+      item.phone,
+      item.service,
+      item.date,
+      item.amount,
+      item.paid,
+      item.status
+    ])
+  ];
+  const csv = rows
+    .map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(','))
+    .join('\n');
+  const href = URL.createObjectURL(new Blob(['\ufeff', csv], { type: 'text/csv;charset=utf-8' }));
+  const anchor = document.createElement('a');
+  anchor.href = href;
+  anchor.download = 'simamia-orders.csv';
+  anchor.click();
+  URL.revokeObjectURL(href);
+}
 const idNext = (prefix: string, n: number, digits = 4) =>
   `${prefix}-${String(n).padStart(digits, '0')}`;
 const statusClass = (status: Status) =>
-  status === 'Completed'
-    ? 'border-primary/40 text-primary'
-    : status === 'Ready'
-      ? 'border-blue-500/40 text-blue-700 dark:text-blue-300'
-      : status === 'Cancelled'
-        ? 'border-destructive/40 text-destructive'
-        : 'border-border text-muted-foreground';
+  [
+    'New',
+    'Booked',
+    'Received',
+    'Tagged',
+    'Order received',
+    'Measurements taken',
+    'Started'
+  ].includes(status)
+    ? 'status-badge-new'
+    : [
+          'In progress',
+          'Checked in',
+          'In service',
+          'Preparing cut',
+          'Cleaning',
+          'Inspection',
+          'Diagnosing',
+          'Quote pending',
+          'Estimate pending',
+          'Approved',
+          'In repair',
+          'Repairing',
+          'Testing',
+          'Quality check',
+          'Cutting',
+          'Sewing',
+          'Fitting',
+          'Alteration',
+          'Awaiting provider confirmation'
+        ].includes(status)
+      ? 'status-badge-progress'
+      : ['Ready', 'Ready for checkout', 'Ready for pickup'].includes(status)
+        ? 'status-badge-ready'
+        : ['No-show', 'Spoilage recorded', 'Reconciliation exception'].includes(status)
+          ? 'status-badge-unpaid'
+          : 'status-badge-closed';
+
+const paymentStatusClass = (state: 'Paid' | 'Partial' | 'Unpaid') =>
+  state === 'Paid'
+    ? 'status-badge-closed'
+    : state === 'Partial'
+      ? 'status-badge-partial'
+      : 'status-badge-unpaid';
 
 function Field({
   label,
@@ -634,12 +807,14 @@ function Choice({
   label,
   value,
   onChange,
-  options
+  options,
+  optionLabels
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   options: string[];
+  optionLabels?: string[];
 }) {
   return (
     <div className='grid gap-2'>
@@ -649,9 +824,9 @@ function Choice({
         value={value}
         onChange={(event) => onChange(event.target.value)}
       >
-        {options.map((option) => (
+        {options.map((option, index) => (
           <option key={option} value={option}>
-            {option}
+            {optionLabels?.[index] ?? option}
           </option>
         ))}
       </select>
@@ -661,7 +836,7 @@ function Choice({
 function OrderStatus({ status, lang }: { status: Status; lang: Lang }) {
   return (
     <Badge variant='outline' className={statusClass(status)}>
-      {lang === 'sw' ? statusSw[status] : status}
+      {statusLabel(status, lang)}
     </Badge>
   );
 }
@@ -685,47 +860,193 @@ function SectionHeading({
   );
 }
 
-export default function HudumaDesk() {
+export default function Simamia() {
+  const { user, authenticated, loading: authLoading, logout, getAccessToken } = useSimamiaAuth();
   const [lang, setLang] = useState<Lang>('sw');
   const [page, setPage] = useState<Page>('overview');
   const [orders, setOrders] = useState<Order[]>(seedOrders);
   const [customers, setCustomers] = useState<Customer[]>(seedCustomers);
   const [services, setServices] = useState<Service[]>(seedServices);
   const [staff, setStaff] = useState<Staff[]>(seedStaff);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
   const [businessName, setBusinessName] = useState('Mwangaza Demo Services');
+  const [businessProfile, setBusinessProfile] = useState<SimamiaBusinessProfile | null>(null);
+  const [profileReady, setProfileReady] = useState(false);
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [modal, setModal] = useState<FormKind>(null);
   const [form, setForm] = useState<Record<string, string>>({});
   const [loaded, setLoaded] = useState(false);
+  const [apiConnected, setApiConnected] = useState(false);
   const [assistantQuestion, setAssistantQuestion] = useState('');
   const [assistantAnswer, setAssistantAnswer] = useState('');
   const t = (key: keyof typeof words.sw) => words[lang][key] ?? words.en[key];
+  const accountKey = user?.sub ? encodeURIComponent(user.sub) : '';
+  const profileStorageKey = accountKey ? `simamia-business-profile:${accountKey}` : '';
+  const activeTemplate = getBusinessTemplate(businessProfile?.primaryTemplate);
+  const statuses = (
+    activeTemplate.statuses.length ? activeTemplate.statuses : defaultStatuses
+  ) as Status[];
 
   useEffect(() => {
+    if (authLoading) return;
+    if (!authenticated || !accountKey) {
+      setBusinessProfile(null);
+      setProfileReady(true);
+      return;
+    }
+    let active = true;
+    setProfileReady(false);
+    let cached: SimamiaBusinessProfile | null = null;
     try {
-      const raw = localStorage.getItem('hudumadesk-demo-v1');
-      if (raw) {
-        const value = JSON.parse(raw);
-        if (value.orders) setOrders(value.orders);
-        if (value.customers) setCustomers(value.customers);
-        if (value.services) setServices(value.services);
-        if (value.staff) setStaff(value.staff);
+      const raw = localStorage.getItem(profileStorageKey);
+      cached = raw ? (JSON.parse(raw) as SimamiaBusinessProfile) : null;
+    } catch {
+      cached = null;
+    }
+    const loadProfile = async () => {
+      try {
+        const profiles = await fetchApiRecords<SimamiaBusinessProfile>(
+          'businesses',
+          getAccessToken()
+        );
+        if (active) setApiConnected(true);
+        const remoteProfile = profiles.find((profile) => profile.ownerSub === user?.sub);
+        if (active)
+          setBusinessProfile(remoteProfile ?? (cached?.ownerSub === user?.sub ? cached : null));
+      } catch {
+        if (active) setApiConnected(false);
+        if (active) setBusinessProfile(cached?.ownerSub === user?.sub ? cached : null);
+      } finally {
+        if (active) setProfileReady(true);
+      }
+    };
+    void loadProfile();
+    return () => {
+      active = false;
+    };
+  }, [authLoading, authenticated, accountKey, profileStorageKey, user?.sub, getAccessToken]);
+
+  useEffect(() => {
+    let active = true;
+    if (authLoading || !profileReady) return;
+    if (
+      !authenticated ||
+      !accountKey ||
+      !businessProfile ||
+      businessProfile.ownerSub !== user?.sub
+    ) {
+      setLoaded(true);
+      return;
+    }
+    try {
+      const preferences = readWorkspaceCache('prefs', accountKey);
+      if (preferences) {
+        const value = JSON.parse(preferences);
         if (value.language === 'sw' || value.language === 'en') setLang(value.language);
-        if (value.businessName) setBusinessName(value.businessName);
+        if (typeof value.businessName === 'string' && value.businessName)
+          setBusinessName(value.businessName);
       }
     } catch {
-      /* Ignore corrupted local preview data. */
+      /* Ignore corrupted local preferences. */
     }
-    setLoaded(true);
-  }, []);
+    const initialize = async () => {
+      try {
+        const accessToken = getAccessToken();
+        const [remoteOrders, remoteCustomers, remoteServices, remoteStaff, remoteExpenses] =
+          await Promise.all([
+            fetchApiRecords<Order>('orders', accessToken),
+            fetchApiRecords<Customer>('customers', accessToken),
+            fetchApiRecords<Service>('services', accessToken),
+            fetchApiRecords<Staff>('team', accessToken),
+            fetchApiRecords<Expense>('expenses', accessToken)
+          ]);
+        if (!active) return;
+        setOrders(remoteOrders);
+        setCustomers(remoteCustomers);
+        setServices(remoteServices);
+        setStaff(remoteStaff);
+        setExpenses(remoteExpenses);
+        setApiConnected(true);
+      } catch {
+        try {
+          const raw = readWorkspaceCache('demo', accountKey);
+          if (raw) {
+            const value = JSON.parse(raw);
+            if (value.orders) setOrders(value.orders);
+            if (value.customers) setCustomers(value.customers);
+            if (value.services) setServices(value.services);
+            if (value.staff) setStaff(value.staff);
+            if (value.expenses) setExpenses(value.expenses);
+            if (value.language === 'sw' || value.language === 'en') setLang(value.language);
+            if (value.businessName) setBusinessName(value.businessName);
+          }
+        } catch {
+          /* Ignore corrupted local preview data. */
+        }
+      } finally {
+        if (active) setLoaded(true);
+      }
+    };
+    void initialize();
+    return () => {
+      active = false;
+    };
+  }, [
+    authLoading,
+    profileReady,
+    authenticated,
+    accountKey,
+    businessProfile?.ownerSub,
+    user?.sub,
+    getAccessToken
+  ]);
   useEffect(() => {
-    if (loaded)
+    if (
+      !loaded ||
+      !profileReady ||
+      !authenticated ||
+      !accountKey ||
+      !businessProfile ||
+      businessProfile.ownerSub !== user?.sub
+    )
+      return;
+    if (loaded) {
       localStorage.setItem(
-        'hudumadesk-demo-v1',
-        JSON.stringify({ orders, customers, services, staff, language: lang, businessName })
+        `simamia-prefs:${accountKey}`,
+        JSON.stringify({ language: lang, businessName })
       );
-  }, [loaded, orders, customers, services, staff, lang, businessName]);
+    }
+    if (loaded && !apiConnected) {
+      localStorage.setItem(
+        `simamia-demo:${accountKey}`,
+        JSON.stringify({
+          orders,
+          customers,
+          services,
+          staff,
+          expenses,
+          language: lang,
+          businessName
+        })
+      );
+    }
+  }, [
+    loaded,
+    profileReady,
+    authenticated,
+    accountKey,
+    businessProfile,
+    user?.sub,
+    apiConnected,
+    orders,
+    customers,
+    services,
+    staff,
+    expenses,
+    lang,
+    businessName
+  ]);
   useEffect(() => {
     document.documentElement.lang = lang;
   }, [lang]);
@@ -752,154 +1073,261 @@ export default function HudumaDesk() {
       ),
     [customers, query]
   );
-  const pageName = t(page);
+  const entitySingular =
+    lang === 'sw' ? activeTemplate.entitySingularSw : activeTemplate.entitySingular;
+  const entityPlural = lang === 'sw' ? activeTemplate.entityPluralSw : activeTemplate.entityPlural;
+  const pageName = page === 'orders' ? entityPlural : t(page);
   const descKey = `${page}Desc` as keyof typeof words.sw;
-  const description = t(descKey);
+  const description =
+    page === 'orders'
+      ? lang === 'sw'
+        ? activeTemplate.descriptionSw
+        : activeTemplate.description
+      : t(descKey);
+  const paymentOrders = orders.filter(
+    (item) => item.customer === form.customer && item.amount > item.paid
+  );
   const setField = (key: string, value: string) => setForm((old) => ({ ...old, [key]: value }));
   const openModal = (kind: Exclude<FormKind, null>) => {
+    const paymentOrder = orders.find((item) => item.amount > item.paid) ?? orders[0];
     setForm({
       date: '2026-10-12',
       time: '10:00',
       amount: '',
       paid: '0',
-      status: 'New',
-      method: 'M-Pesa',
+      status: statuses[0] ?? 'New',
+      method: kind === 'expense' ? 'Cash' : 'M-Pesa',
       category: 'General',
       duration: '1 hour',
-      customer: customers[0]?.name ?? '',
-      service: services.find((item) => item.active)?.name ?? '',
-      order: orders[0]?.id ?? '',
+      customer: kind === 'payment' ? (paymentOrder?.customer ?? '') : (customers[0]?.name ?? ''),
+      service: activeTemplate.sampleServices[0] ?? services.find((item) => item.active)?.name ?? '',
+      phone: '',
+      order: paymentOrder?.id ?? '',
+      paymentType: 'Deposit',
       channel: 'SMS',
-      message: ''
+      message: '',
+      vendor: '',
+      notes: '',
+      ...Object.fromEntries(
+        activeTemplate.details.map((field) => [field.key, field.options?.[0] ?? ''])
+      )
     });
     setModal(kind);
   };
-  const cycleStatus = (id: string) =>
-    setOrders((items) =>
-      items.map((item) =>
-        item.id === id
-          ? { ...item, status: statuses[(statuses.indexOf(item.status) + 1) % statuses.length] }
-          : item
-      )
-    );
+  const cycleStatus = async (id: string) => {
+    const order = orders.find((item) => item.id === id);
+    if (!order) return;
+    try {
+      if (apiConnected) await updateApiRecord<Order>('orders', id, { status }, getAccessToken());
+      setOrders((items) => items.map((item) => (item.id === id ? { ...item, status } : item)));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Unable to update order status');
+    }
+  };
+  const toggleService = async (id: string) => {
+    const service = services.find((item) => item.id === id);
+    if (!service) return;
+    try {
+      if (apiConnected) {
+        await updateApiRecord<Service>(
+          'services',
+          id,
+          { active: !service.active },
+          getAccessToken()
+        );
+      }
+      setServices((items) =>
+        items.map((item) => (item.id === id ? { ...item, active: !item.active } : item))
+      );
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Unable to update service');
+    }
+  };
+  const toggleStaff = async (id: string) => {
+    const member = staff.find((item) => item.id === id);
+    if (!member) return;
+    try {
+      if (apiConnected) {
+        await updateApiRecord<Staff>('team', id, { active: !member.active }, getAccessToken());
+      }
+      setStaff((items) =>
+        items.map((item) => (item.id === id ? { ...item, active: !item.active } : item))
+      );
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Unable to update team member');
+    }
+  };
   const resetForm = () => {
     setModal(null);
     setForm({});
   };
-  const saveRecord = (event: FormEvent<HTMLFormElement>) => {
+  const saveRecord = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (modal === 'order') {
       if (!form.customer || !form.service || !form.amount) return;
       const customer = customers.find((item) => item.name === form.customer);
       const amount = Number(form.amount) || 0;
-      setOrders((items) => [
-        {
-          id: idNext('ORD', 249 + items.length),
-          customer: form.customer,
-          phone: customer?.phone ?? form.phone ?? '',
-          service: form.service,
-          date: `${form.date || '2026-10-12'}T${form.time || '10:00'}`,
-          amount,
-          paid: Number(form.paid) || 0,
-          status: (form.status as Status) || 'New',
-          method: form.method || '—',
-          assignee: form.assignee || staff[0]?.name || '—'
-        },
-        ...items
-      ]);
+      const values = {
+        customer: form.customer,
+        phone: customer?.phone ?? form.phone ?? '',
+        service: form.service,
+        date: `${form.date || '2026-10-12'}T${form.time || '10:00'}`,
+        amount,
+        paid: activeTemplate.id === 'mobile_money_agent' ? amount : Number(form.paid) || 0,
+        status: form.status || statuses[0] || 'New',
+        method: form.method || '—',
+        assignee: form.assignee || staff[0]?.name || '—',
+        templateId: activeTemplate.id,
+        customFields: Object.fromEntries(
+          activeTemplate.details.map((field) => [field.key, form[field.key] || ''])
+        )
+      };
+      try {
+        const created = apiConnected
+          ? await createApiRecord<Order>('orders', values, getAccessToken())
+          : {
+              id: idNext('ORD', 249 + orders.length),
+              ...values
+            };
+        setOrders((items) => [created, ...items]);
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Unable to create order');
+        return;
+      }
       toast.success(lang === 'sw' ? 'Agizo limeundwa' : 'Order created');
     } else if (modal === 'customer') {
       if (!form.name || !form.phone) return;
-      setCustomers((items) => [
-        {
-          id: idNext('CUS', 87 + items.length),
-          name: form.name,
-          phone: form.phone,
-          email: form.email || '',
-          location: form.location || 'Tanzania',
-          orders: 0,
-          spent: 0,
-          last: 'Leo'
-        },
-        ...items
-      ]);
+      const values = {
+        name: form.name,
+        phone: form.phone,
+        email: form.email || '',
+        location: form.location || 'Tanzania',
+        orders: 0,
+        spent: 0,
+        last: 'Leo'
+      };
+      try {
+        const created = apiConnected
+          ? await createApiRecord<Customer>('customers', values, getAccessToken())
+          : { id: idNext('CUS', 87 + customers.length), ...values };
+        setCustomers((items) => [created, ...items]);
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Unable to create customer');
+        return;
+      }
       toast.success(lang === 'sw' ? 'Mteja ameongezwa' : 'Customer added');
     } else if (modal === 'service') {
       if (!form.name || !form.price) return;
-      setServices((items) => [
-        {
-          id: idNext('SRV', 1 + items.length, 2),
-          name: form.name,
-          category: form.category || 'General',
-          duration: form.duration || '1 hour',
-          price: Number(form.price) || 0,
-          active: true
-        },
-        ...items
-      ]);
+      const values = {
+        name: form.name,
+        category: form.category || 'General',
+        duration: form.duration || '1 hour',
+        price: Number(form.price) || 0,
+        active: true
+      };
+      try {
+        const created = apiConnected
+          ? await createApiRecord<Service>('services', values, getAccessToken())
+          : { id: idNext('SRV', 1 + services.length, 2), ...values };
+        setServices((items) => [created, ...items]);
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Unable to create service');
+        return;
+      }
       toast.success(lang === 'sw' ? 'Huduma imeongezwa' : 'Service added');
     } else if (modal === 'staff') {
       if (!form.name || !form.phone) return;
-      setStaff((items) => [
-        {
-          id: idNext('TM', 5 + items.length, 2),
-          name: form.name,
-          phone: form.phone,
-          role: form.role || 'Technician',
-          active: true
-        },
-        ...items
-      ]);
+      const values = {
+        name: form.name,
+        phone: form.phone,
+        role: form.role || 'Technician',
+        active: true
+      };
+      try {
+        const created = apiConnected
+          ? await createApiRecord<Staff>('team', values, getAccessToken())
+          : { id: idNext('TM', 5 + staff.length, 2), ...values };
+        setStaff((items) => [created, ...items]);
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Unable to add team member');
+        return;
+      }
       toast.success(lang === 'sw' ? 'Mfanyakazi ameongezwa' : 'Team member added');
     } else if (modal === 'payment') {
       const amount = Number(form.amount) || 0;
-      setOrders((items) =>
-        items.map((item) =>
-          item.id === form.order
-            ? {
-                ...item,
-                paid: Math.min(item.amount, item.paid + amount),
-                method: form.method || item.method
-              }
-            : item
-        )
-      );
+      const order = orders.find((item) => item.id === form.order);
+      if (!order || amount <= 0 || amount > Math.max(0, order.amount - order.paid)) {
+        toast.error(
+          lang === 'sw'
+            ? 'Kiasi lazima kiwe chanya na kisizidi salio.'
+            : 'Enter a positive amount no greater than the remaining balance.'
+        );
+        return;
+      }
+      if (form.customer !== order.customer) {
+        toast.error(
+          lang === 'sw'
+            ? 'Jina la mteja lazima lilingane na agizo.'
+            : 'Customer name must match the selected order.'
+        );
+        return;
+      }
+      const patch = {
+        paid: order.paid + amount,
+        method: form.method || order.method,
+        paymentType: form.paymentType || 'Installment'
+      };
+      try {
+        if (apiConnected) await updateApiRecord<Order>('orders', order.id, patch, getAccessToken());
+        setOrders((items) =>
+          items.map((item) => (item.id === order.id ? { ...item, ...patch } : item))
+        );
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Unable to record payment');
+        return;
+      }
       toast.success(lang === 'sw' ? 'Malipo yamerekodiwa' : 'Payment recorded');
+    } else if (modal === 'expense') {
+      const amount = Number(form.amount) || 0;
+      if (!form.description?.trim() || amount <= 0 || !form.date) {
+        toast.error(
+          lang === 'sw'
+            ? 'Jaza maelezo, tarehe na kiasi sahihi.'
+            : 'Enter a description, date and positive amount.'
+        );
+        return;
+      }
+      const values = {
+        description: form.description.trim(),
+        category: form.category || 'Other',
+        amount,
+        date: form.date,
+        method: form.method || 'Cash',
+        vendor: form.vendor?.trim() || '',
+        notes: form.notes?.trim() || ''
+      };
+      try {
+        const created = apiConnected
+          ? await createApiRecord<Expense>('expenses', values, getAccessToken())
+          : { id: idNext('EXP', expenses.length + 1), ...values };
+        setExpenses((items) => [created, ...items]);
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Unable to record expense');
+        return;
+      }
+      toast.success(lang === 'sw' ? 'Matumizi yamerekodiwa' : 'Expense recorded');
     } else if (modal === 'message') {
       toast.success(t('draftOnly'));
     }
     resetForm();
   };
-  const exportCsv = () => {
-    const rows = [
-      ['Order', 'Customer', 'Phone', 'Service', 'Date', 'Amount TZS', 'Paid TZS', 'Status'],
-      ...filteredOrders.map((item) => [
-        item.id,
-        item.customer,
-        item.phone,
-        item.service,
-        item.date,
-        item.amount,
-        item.paid,
-        item.status
-      ])
-    ];
-    const csv = rows
-      .map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(','))
-      .join('\n');
-    const href = URL.createObjectURL(new Blob(['\ufeff', csv], { type: 'text/csv;charset=utf-8' }));
-    const anchor = document.createElement('a');
-    anchor.href = href;
-    anchor.download = 'hudumadesk-orders.csv';
-    anchor.click();
-    URL.revokeObjectURL(href);
-  };
+  const exportCsv = (exportRows?: Order[]) => downloadOrdersCsv(exportRows ?? filteredOrders);
 
   const pageAction =
     page === 'overview' || page === 'orders' || page === 'schedule' ? (
       <Button onClick={() => openModal('order')}>
         <Icons.add className='mr-2 size-4' />
-        {t('newOrder')}
+        {lang === 'sw' ? `Agizo jipya · ${entitySingular}` : `New ${entitySingular.toLowerCase()}`}
       </Button>
     ) : page === 'customers' ? (
       <Button onClick={() => openModal('customer')}>
@@ -921,17 +1349,69 @@ export default function HudumaDesk() {
         <Icons.add className='mr-2 size-4' />
         {t('recordPayment')}
       </Button>
+    ) : page === 'debts' ? (
+      <Button onClick={() => openModal('payment')}>
+        <Icons.add className='mr-2 size-4' />
+        {lang === 'sw' ? 'Rekodi malipo' : 'Record payment'}
+      </Button>
+    ) : page === 'expenses' ? (
+      <Button onClick={() => openModal('expense')}>
+        <Icons.add className='mr-2 size-4' />
+        {lang === 'sw' ? 'Ongeza matumizi' : 'Add expense'}
+      </Button>
     ) : page === 'messages' ? (
       <Button onClick={() => openModal('message')}>
         <Icons.send className='mr-2 size-4' />
         {t('sendMessage')}
       </Button>
     ) : page === 'reports' ? (
-      <Button variant='outline' onClick={exportCsv}>
+      <Button variant='outline' onClick={() => exportCsv()}>
         <Icons.fileTypeXls className='mr-2 size-4' />
         {t('export')}
       </Button>
     ) : undefined;
+
+  if (
+    authLoading ||
+    !profileReady ||
+    (businessProfile?.ownerSub && businessProfile.ownerSub !== user?.sub)
+  ) {
+    return (
+      <main className='bg-background flex min-h-svh items-center justify-center'>
+        <Icons.spinner
+          className='text-primary size-6 animate-spin'
+          aria-label={lang === 'sw' ? 'Inapakia' : 'Loading'}
+        />
+      </main>
+    );
+  }
+  if (!authenticated || !user?.sub) return <CamelAuthScreen lang={lang} />;
+  if (!businessProfile || businessProfile.ownerSub !== user.sub) {
+    return (
+      <BusinessSetup
+        ownerSub={user.sub}
+        ownerName={user.name}
+        ownerPhone={user.phone_number}
+        lang={lang}
+        onComplete={async (profile) => {
+          const savedProfile = apiConnected
+            ? await createApiRecord<SimamiaBusinessProfile>(
+                'businesses',
+                { ...profile },
+                getAccessToken()
+              )
+            : profile;
+          localStorage.setItem(
+            `simamia-business-profile:${encodeURIComponent(user.sub)}`,
+            JSON.stringify(savedProfile)
+          );
+          setBusinessProfile(savedProfile);
+          setBusinessName(savedProfile.businessName);
+          setLoaded(false);
+        }}
+      />
+    );
+  }
 
   return (
     <SidebarProvider defaultOpen>
@@ -947,7 +1427,7 @@ export default function HudumaDesk() {
                   H
                 </span>
                 <span className='grid flex-1 text-left text-sm leading-tight'>
-                  <span className='truncate font-semibold'>HudumaDesk</span>
+                  <span className='truncate font-semibold'>Simamia</span>
                   <span className='truncate text-xs text-muted-foreground'>{businessName}</span>
                 </span>
                 <Icons.chevronsDown className='ml-auto size-4' />
@@ -972,6 +1452,7 @@ export default function HudumaDesk() {
                           render={
                             <button
                               type='button'
+                              aria-label={t(item.page)}
                               onClick={() => {
                                 setPage(item.page);
                                 setQuery('');
@@ -980,10 +1461,20 @@ export default function HudumaDesk() {
                           }
                         >
                           <Icon className='size-4' />
-                          <span>{t(item.page)}</span>
+                          <span>{item.page === 'orders' ? entityPlural : t(item.page)}</span>
                           {item.page === 'orders' && (
                             <span className='bg-muted text-muted-foreground ml-auto rounded px-1.5 py-0.5 text-[10px]'>
-                              {orders.filter((order) => order.status !== 'Completed').length}
+                              {
+                                orders.filter(
+                                  (order) =>
+                                    ![
+                                      'Completed',
+                                      'Collected',
+                                      'Paid / collected',
+                                      'Cancelled'
+                                    ].includes(order.status)
+                                ).length
+                              }
                             </span>
                           )}
                         </SidebarMenuButton>
@@ -995,13 +1486,21 @@ export default function HudumaDesk() {
           ))}
         </SidebarContent>
         <SidebarFooter>
+          <div className='flex items-center justify-between gap-2 px-2 py-1 group-data-[collapsible=icon]:justify-center'>
+            <span className='text-muted-foreground text-xs group-data-[collapsible=icon]:hidden'>
+              {lang === 'sw' ? 'Mwonekano' : 'Appearance'}
+            </span>
+            <ThemeModeToggle />
+          </div>
           <Separator />
           <div className='flex items-center gap-3 px-2 py-2'>
             <div className='bg-primary/15 text-primary flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold'>
               DA
             </div>
             <div className='min-w-0 flex-1'>
-              <p className='truncate text-sm font-medium'>Demo Admin Emmanuel</p>
+              <p className='truncate text-sm font-medium'>
+                {user.name || user.phone_number || 'Camel Accounts user'}
+              </p>
               <p className='text-muted-foreground truncate text-xs'>
                 {lang === 'sw' ? 'Msimamizi' : 'Owner'}
               </p>
@@ -1019,6 +1518,22 @@ export default function HudumaDesk() {
             <span className='text-muted-foreground hidden text-sm sm:inline'>{businessName}</span>
             <span className='text-muted-foreground hidden sm:inline'>/</span>
             <span className='truncate text-sm font-medium'>{pageName}</span>
+            <Badge variant='outline' className='ml-2 hidden sm:inline-flex'>
+              <span
+                className={
+                  apiConnected
+                    ? 'mr-1.5 size-1.5 rounded-full bg-emerald-500'
+                    : 'mr-1.5 size-1.5 rounded-full bg-amber-500'
+                }
+              />
+              {apiConnected
+                ? lang === 'sw'
+                  ? 'API'
+                  : 'Shared API'
+                : lang === 'sw'
+                  ? 'Onyesho la kifaa'
+                  : 'Local preview'}
+            </Badge>
           </div>
           <div className='flex items-center gap-2 px-4'>
             <div className='relative hidden w-52 md:block'>
@@ -1037,6 +1552,15 @@ export default function HudumaDesk() {
               aria-label={t('switchLang')}
             >
               {lang === 'sw' ? 'SW' : 'EN'}
+            </Button>
+            <ThemeModeToggle />
+            <Button
+              variant='ghost'
+              size='icon'
+              aria-label={lang === 'sw' ? 'Toka kwenye akaunti' : 'Sign out'}
+              onClick={logout}
+            >
+              <Icons.logout className='size-4' />
             </Button>
             <Button
               variant='ghost'
@@ -1068,6 +1592,10 @@ export default function HudumaDesk() {
             <OrdersPage
               orders={filteredOrders}
               lang={lang}
+              statuses={statuses}
+              workflowFields={activeTemplate.details}
+              entitySingular={entitySingular}
+              entityPlural={entityPlural}
               query={query}
               setQuery={setQuery}
               statusFilter={statusFilter}
@@ -1083,31 +1611,30 @@ export default function HudumaDesk() {
                 [item.name, item.category].join(' ').toLowerCase().includes(query.toLowerCase())
               )}
               lang={lang}
-              onToggle={(id) =>
-                setServices((items) =>
-                  items.map((item) => (item.id === id ? { ...item, active: !item.active } : item))
-                )
-              }
+              onToggle={toggleService}
             />
           )}
           {page === 'schedule' && (
             <SchedulePage orders={orders} lang={lang} onAdvance={cycleStatus} />
           )}
-          {page === 'team' && (
-            <TeamPage
-              staff={staff}
-              lang={lang}
-              onToggle={(id) =>
-                setStaff((items) =>
-                  items.map((item) => (item.id === id ? { ...item, active: !item.active } : item))
-                )
-              }
-            />
-          )}
+          {page === 'team' && <TeamPage staff={staff} lang={lang} onToggle={toggleStaff} />}
           {page === 'payments' && (
             <PaymentsPage orders={orders} lang={lang} onRecord={() => openModal('payment')} />
           )}
-          {page === 'reports' && <ReportsPage orders={orders} lang={lang} onExport={exportCsv} />}
+          {page === 'debts' && <DebtsPage orders={orders} lang={lang} query={query} />}
+          {page === 'expenses' && <ExpensesPage expenses={expenses} lang={lang} query={query} />}
+          {page === 'invoices' && (
+            <InvoicesPage
+              orders={orders}
+              customers={customers}
+              businessName={businessName}
+              lang={lang}
+              query={query}
+            />
+          )}
+          {page === 'reports' && (
+            <ReportsPage orders={orders} expenses={expenses} lang={lang} onExport={exportCsv} />
+          )}
           {page === 'messages' && (
             <MessagesPage lang={lang} onPrepare={() => openModal('message')} />
           )}
@@ -1129,12 +1656,16 @@ export default function HudumaDesk() {
               lang={lang}
               businessName={businessName}
               setBusinessName={setBusinessName}
+              canReset={!apiConnected}
               onReset={() => {
+                localStorage.removeItem(`simamia-demo:${accountKey}`);
+                localStorage.removeItem(`hudumadesk-demo:${accountKey}`);
                 localStorage.removeItem('hudumadesk-demo-v1');
                 setOrders(seedOrders);
                 setCustomers(seedCustomers);
                 setServices(seedServices);
                 setStaff(seedStaff);
+                setExpenses([]);
                 toast.success(lang === 'sw' ? 'Onyesho limerejeshwa' : 'Demo data reset');
               }}
             />
@@ -1155,29 +1686,63 @@ export default function HudumaDesk() {
                       ? t('addStaff')
                       : modal === 'payment'
                         ? t('recordPayment')
-                        : t('sendMessage')}
+                        : modal === 'expense'
+                          ? lang === 'sw'
+                            ? 'Rekodi matumizi'
+                            : 'Record expense'
+                          : t('sendMessage')}
             </DialogTitle>
             <DialogDescription>
-              {lang === 'sw'
-                ? 'Jaza taarifa hapa chini. Data ya onyesho huhifadhiwa kwenye kifaa hiki.'
-                : 'Enter the details below. Preview data is stored on this device.'}
+              {apiConnected
+                ? lang === 'sw'
+                  ? 'Jaza taarifa hapa chini. Taarifa zitahifadhiwa kwenye nafasi ya biashara.'
+                  : 'Enter the details below. Records will be saved to the shared workspace.'
+                : lang === 'sw'
+                  ? 'Jaza taarifa hapa chini. Taarifa za onyesho huhifadhiwa kwenye kifaa hiki.'
+                  : 'Enter the details below. Preview records are stored on this device.'}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={saveRecord} className='space-y-4'>
             <div className='grid grid-cols-1 gap-4 sm:grid-cols-2'>
               {modal === 'order' && (
                 <>
-                  <Choice
-                    label={t('customer')}
+                  <Field
+                    label={lang === 'sw' ? 'Jina la mteja' : 'Customer name'}
                     value={form.customer ?? ''}
-                    onChange={(value) => setField('customer', value)}
-                    options={customers.map((item) => item.name)}
+                    onChange={(value) => {
+                      const knownCustomer = customers.find(
+                        (item) => item.name.toLowerCase() === value.toLowerCase()
+                      );
+                      setForm((old) => ({
+                        ...old,
+                        customer: value,
+                        phone: knownCustomer?.phone ?? old.phone ?? ''
+                      }));
+                    }}
+                    placeholder={
+                      lang === 'sw'
+                        ? 'Andika jina au mteja wa dukani'
+                        : 'Enter a name or walk-in customer'
+                    }
+                    required
+                  />
+                  <Field
+                    label={t('phone')}
+                    type='tel'
+                    value={form.phone ?? ''}
+                    onChange={(value) => setField('phone', value)}
+                    placeholder='+255 7xx xxx xxx'
                   />
                   <Choice
                     label={t('service')}
                     value={form.service ?? ''}
                     onChange={(value) => setField('service', value)}
-                    options={services.filter((item) => item.active).map((item) => item.name)}
+                    options={activeTemplate.sampleServices}
+                    optionLabels={
+                      lang === 'sw'
+                        ? activeTemplate.sampleServicesSw
+                        : activeTemplate.sampleServices
+                    }
                   />
                   <Field
                     label={t('date')}
@@ -1193,7 +1758,17 @@ export default function HudumaDesk() {
                     onChange={(value) => setField('time', value)}
                   />
                   <Field
-                    label={t('amount')}
+                    label={
+                      activeTemplate.id === 'mobile_money_agent'
+                        ? lang === 'sw'
+                          ? 'Kamisheni / ada (TZS)'
+                          : 'Commission / fee earned (TZS)'
+                        : activeTemplate.id === 'butcher'
+                          ? lang === 'sw'
+                            ? 'Jumla ya mauzo (TZS)'
+                            : 'Sale total (TZS)'
+                          : t('amount')
+                    }
                     type='number'
                     value={form.amount ?? ''}
                     onChange={(value) => setField('amount', value)}
@@ -1206,6 +1781,34 @@ export default function HudumaDesk() {
                     onChange={(value) => setField('assignee', value)}
                     options={staff.map((item) => item.name)}
                   />
+                  <Choice
+                    label={lang === 'sw' ? 'Hatua ya kazi' : 'Workflow status'}
+                    value={form.status ?? statuses[0] ?? 'New'}
+                    onChange={(value) => setField('status', value)}
+                    options={statuses}
+                    optionLabels={statuses.map((status) => statusLabel(status, lang))}
+                  />
+                  {activeTemplate.details.map((field) =>
+                    field.type === 'select' ? (
+                      <Choice
+                        key={field.key}
+                        label={lang === 'sw' ? field.labelSw : field.label}
+                        value={form[field.key] ?? field.options?.[0] ?? ''}
+                        onChange={(value) => setField(field.key, value)}
+                        options={field.options ?? []}
+                        optionLabels={lang === 'sw' ? field.optionsSw : field.options}
+                      />
+                    ) : (
+                      <Field
+                        key={field.key}
+                        label={lang === 'sw' ? field.labelSw : field.label}
+                        type={field.type ?? 'text'}
+                        value={form[field.key] ?? ''}
+                        onChange={(value) => setField(field.key, value)}
+                        placeholder={lang === 'sw' ? field.placeholderSw : field.placeholder}
+                      />
+                    )
+                  )}
                 </>
               )}
               {modal === 'customer' && (
@@ -1287,11 +1890,38 @@ export default function HudumaDesk() {
               )}
               {modal === 'payment' && (
                 <>
+                  <Field
+                    label={lang === 'sw' ? 'Jina la mteja' : 'Customer name'}
+                    value={form.customer ?? ''}
+                    onChange={(value) => {
+                      const nextOrder = orders.find(
+                        (item) =>
+                          item.customer.toLowerCase() === value.toLowerCase() &&
+                          item.amount > item.paid
+                      );
+                      setForm((old) => ({ ...old, customer: value, order: nextOrder?.id ?? '' }));
+                    }}
+                    required
+                    placeholder={lang === 'sw' ? 'Andika jina la mteja' : 'Enter customer name'}
+                  />
                   <Choice
-                    label={lang === 'sw' ? 'Agizo' : 'Order'}
+                    label={lang === 'sw' ? 'Agizo lenye salio' : 'Outstanding order'}
                     value={form.order ?? ''}
-                    onChange={(value) => setField('order', value)}
-                    options={orders.map((item) => item.id)}
+                    onChange={(value) => {
+                      const nextOrder = orders.find((item) => item.id === value);
+                      setForm((old) => ({
+                        ...old,
+                        order: value,
+                        customer: nextOrder?.customer ?? old.customer
+                      }));
+                    }}
+                    options={paymentOrders.map((item) => item.id)}
+                  />
+                  <Choice
+                    label={lang === 'sw' ? 'Aina ya malipo' : 'Payment type'}
+                    value={form.paymentType ?? 'Deposit'}
+                    onChange={(value) => setField('paymentType', value)}
+                    options={['Deposit', 'Installment', 'Final payment']}
                   />
                   <Field
                     label={t('amount')}
@@ -1315,6 +1945,73 @@ export default function HudumaDesk() {
                   />
                 </>
               )}
+              {modal === 'expense' && (
+                <>
+                  <Field
+                    label={lang === 'sw' ? 'Maelezo ya matumizi' : 'Expense description'}
+                    value={form.description ?? ''}
+                    onChange={(value) => setField('description', value)}
+                    required
+                    placeholder={
+                      lang === 'sw' ? 'Mfano: vifaa vya usafi' : 'e.g. Cleaning supplies'
+                    }
+                  />
+                  <Choice
+                    label={lang === 'sw' ? 'Aina ya matumizi' : 'Expense type'}
+                    value={form.category ?? 'Operations'}
+                    onChange={(value) => setField('category', value)}
+                    options={[
+                      'Operations',
+                      'Supplies',
+                      'Transport',
+                      'Utilities',
+                      'Rent',
+                      'Payroll',
+                      'Marketing',
+                      'Other'
+                    ]}
+                  />
+                  <Field
+                    label={lang === 'sw' ? 'Kiasi (TZS)' : 'Amount (TZS)'}
+                    type='number'
+                    value={form.amount ?? ''}
+                    onChange={(value) => setField('amount', value)}
+                    required
+                  />
+                  <Field
+                    label={lang === 'sw' ? 'Tarehe' : 'Date'}
+                    type='date'
+                    value={form.date ?? ''}
+                    onChange={(value) => setField('date', value)}
+                    required
+                  />
+                  <Field
+                    label={lang === 'sw' ? 'Mlipwaji / muuzaji' : 'Payee / vendor'}
+                    value={form.vendor ?? ''}
+                    onChange={(value) => setField('vendor', value)}
+                  />
+                  <Choice
+                    label={t('method')}
+                    value={form.method ?? 'Cash'}
+                    onChange={(value) => setField('method', value)}
+                    options={[
+                      'Cash',
+                      'M-Pesa',
+                      'Mixx by Yas',
+                      'Airtel Money',
+                      'HaloPesa',
+                      'Bank transfer'
+                    ]}
+                  />
+                  <div className='sm:col-span-2'>
+                    <Field
+                      label={lang === 'sw' ? 'Maelezo ya ziada' : 'Notes'}
+                      value={form.notes ?? ''}
+                      onChange={(value) => setField('notes', value)}
+                    />
+                  </div>
+                </>
+              )}
               {modal === 'message' && (
                 <>
                   <Choice
@@ -1331,8 +2028,10 @@ export default function HudumaDesk() {
                     placeholder='+255… or email'
                   />
                   <div className='sm:col-span-2 grid gap-2'>
-                    <Label>{lang === 'sw' ? 'Ujumbe' : 'Message'}</Label>
+                    <Label htmlFor='message-body'>{lang === 'sw' ? 'Ujumbe' : 'Message'}</Label>
                     <textarea
+                      id='message-body'
+                      aria-label={lang === 'sw' ? 'Ujumbe' : 'Message'}
                       className='border-input bg-background focus-visible:ring-ring min-h-24 w-full rounded-md border px-3 py-2 text-sm shadow-xs outline-none focus-visible:ring-1'
                       value={form.message ?? ''}
                       onChange={(event) => setField('message', event.target.value)}
@@ -1552,20 +2251,27 @@ function Metric({
   value,
   change,
   note,
-  icon
+  icon,
+  valueClassName
 }: {
   title: string;
   value: string;
   change: string;
   note: string;
   icon: keyof typeof Icons;
+  valueClassName?: string;
 }) {
   const Icon = Icons[icon];
   return (
     <Card className='@container/card'>
       <CardHeader>
         <CardDescription>{title}</CardDescription>
-        <CardTitle className='text-2xl font-semibold tabular-nums @[250px]/card:text-3xl'>
+        <CardTitle
+          className={cn(
+            'text-2xl font-semibold tabular-nums @[250px]/card:text-3xl',
+            valueClassName
+          )}
+        >
           {value}
         </CardTitle>
         <CardAction>
@@ -1657,6 +2363,10 @@ function OrdersTable({
 function OrdersPage({
   orders,
   lang,
+  statuses,
+  workflowFields,
+  entitySingular,
+  entityPlural,
   query,
   setQuery,
   statusFilter,
@@ -1666,6 +2376,10 @@ function OrdersPage({
 }: {
   orders: Order[];
   lang: Lang;
+  statuses: string[];
+  workflowFields: WorkflowField[];
+  entitySingular: string;
+  entityPlural: string;
   query: string;
   setQuery: (value: string) => void;
   statusFilter: string;
@@ -1677,11 +2391,13 @@ function OrdersPage({
   return (
     <div className='space-y-4'>
       <SectionHeading
-        title={lang === 'sw' ? 'Orodha ya maagizo' : 'Order register'}
+        title={
+          lang === 'sw' ? `Orodha ya ${entityPlural.toLowerCase()}` : `${entitySingular} register`
+        }
         description={
           lang === 'sw'
-            ? 'Bofya hali ili kusogeza agizo hatua inayofuata.'
-            : 'Select a status badge to move an order to the next step.'
+            ? `Bofya hali ili kusogeza ${entitySingular.toLowerCase()} hatua inayofuata.`
+            : `Select a status badge to move a ${entitySingular.toLowerCase()} to its next step.`
         }
         action={
           <Button variant='outline' onClick={onPayment}>
@@ -1694,7 +2410,7 @@ function OrdersPage({
         <CardHeader>
           <div className='flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'>
             <div>
-              <CardTitle>{t('orders')}</CardTitle>
+              <CardTitle>{entityPlural}</CardTitle>
               <CardDescription>
                 {orders.length} {lang === 'sw' ? 'rekodi' : 'records'}
               </CardDescription>
@@ -1716,7 +2432,7 @@ function OrdersPage({
                 </option>
                 {statuses.map((status) => (
                   <option key={status} value={status}>
-                    {lang === 'sw' ? statusSw[status] : status}
+                    {statusLabel(status, lang)}
                   </option>
                 ))}
               </select>
@@ -1745,7 +2461,23 @@ function OrdersPage({
                       <div className='font-medium'>{item.customer}</div>
                       <div className='text-muted-foreground text-xs'>{item.phone}</div>
                     </TableCell>
-                    <TableCell>{item.service}</TableCell>
+                    <TableCell>
+                      <div>{item.service}</div>
+                      {workflowFields.map((field) => {
+                        const value = item.customFields?.[field.key];
+                        if (value === undefined || value === null || value === '') return null;
+                        const optionIndex = field.options?.indexOf(String(value)) ?? -1;
+                        const displayValue =
+                          lang === 'sw' && optionIndex >= 0
+                            ? (field.optionsSw?.[optionIndex] ?? String(value))
+                            : String(value);
+                        return (
+                          <div key={field.key} className='text-muted-foreground text-xs'>
+                            {lang === 'sw' ? field.labelSw : field.label}: {displayValue}
+                          </div>
+                        );
+                      })}
+                    </TableCell>
                     <TableCell>
                       {new Date(item.date).toLocaleString(lang === 'sw' ? 'sw-TZ' : 'en-GB', {
                         day: '2-digit',
@@ -1894,8 +2626,7 @@ function SchedulePage({
   lang: Lang;
   onAdvance: (id: string) => void;
 }) {
-  const t = (key: keyof typeof words.sw) => words[lang][key] ?? words.en[key];
-  const upcoming = [...orders].sort((a, b) => a.date.localeCompare(b.date));
+  const upcoming = orders.toSorted((a, b) => a.date.localeCompare(b.date));
   return (
     <div className='grid gap-4 lg:grid-cols-[260px_1fr]'>
       <Card>
@@ -2007,6 +2738,235 @@ function TeamPage({
     </div>
   );
 }
+function DebtsPage({ orders, lang, query }: { orders: Order[]; lang: Lang; query: string }) {
+  const debtOrders = orders.filter(
+    (order) =>
+      order.amount > order.paid &&
+      [order.customer, order.phone, order.id, order.service]
+        .join(' ')
+        .toLowerCase()
+        .includes(query.toLowerCase())
+  );
+  const totalDue = debtOrders.reduce(
+    (sum, order) => sum + Math.max(0, order.amount - order.paid),
+    0
+  );
+  const customersOwing = new Set(debtOrders.map((order) => order.customer)).size;
+  return (
+    <div className='space-y-4'>
+      <SectionHeading
+        title={lang === 'sw' ? 'Madeni ya wateja' : 'Customer debts'}
+        description={
+          lang === 'sw'
+            ? 'Salio linalodaiwa kwa kila agizo. Rekodi malipo kutoka ukurasa huu.'
+            : 'Outstanding balance by order. Record a payment from this page.'
+        }
+      />
+      <div className='grid gap-4 sm:grid-cols-3'>
+        <Metric
+          title={lang === 'sw' ? 'Jumla ya madeni' : 'Outstanding balance'}
+          value={money(totalDue)}
+          valueClassName={totalDue > 0 ? 'text-red-700 dark:text-red-300' : undefined}
+          change='TZS'
+          note={lang === 'sw' ? 'Salio la maagizo yote' : 'Balance across all orders'}
+          icon='creditCard'
+        />
+        <Metric
+          title={lang === 'sw' ? 'Wateja wanaodaiwa' : 'Customers owing'}
+          value={String(customersOwing)}
+          change={lang === 'sw' ? 'wateja' : 'customers'}
+          note={lang === 'sw' ? 'Wenye agizo lenye salio' : 'With at least one open balance'}
+          icon='teams'
+        />
+        <Metric
+          title={lang === 'sw' ? 'Maagizo yenye salio' : 'Orders with balance'}
+          value={String(debtOrders.length)}
+          change={lang === 'sw' ? 'maagizo' : 'orders'}
+          note={lang === 'sw' ? 'Fuatilia malipo yaliyobaki' : 'Follow up remaining payments'}
+          icon='clock'
+        />
+      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>{lang === 'sw' ? 'Daftari la madeni' : 'Debt register'}</CardTitle>
+          <CardDescription>
+            {lang === 'sw'
+              ? 'Salio huhesabiwa kwa thamani ya agizo ukitoa malipo yaliyorekodiwa.'
+              : 'Balance is calculated as order amount less recorded payments.'}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className='overflow-x-auto'>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{lang === 'sw' ? 'Mteja' : 'Customer'}</TableHead>
+                <TableHead>{lang === 'sw' ? 'Agizo' : 'Order'}</TableHead>
+                <TableHead>{lang === 'sw' ? 'Huduma' : 'Service'}</TableHead>
+                <TableHead>{lang === 'sw' ? 'Tarehe' : 'Date'}</TableHead>
+                <TableHead className='text-right'>{lang === 'sw' ? 'Jumla' : 'Amount'}</TableHead>
+                <TableHead className='text-right'>{lang === 'sw' ? 'Imelipwa' : 'Paid'}</TableHead>
+                <TableHead className='text-right'>{lang === 'sw' ? 'Deni' : 'Due'}</TableHead>
+                <TableHead>{lang === 'sw' ? 'Simu' : 'Phone'}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {debtOrders.map((order) => (
+                <TableRow key={order.id}>
+                  <TableCell className='font-medium'>{order.customer}</TableCell>
+                  <TableCell className='font-mono text-xs'>{order.id}</TableCell>
+                  <TableCell>{order.service}</TableCell>
+                  <TableCell>{order.date.slice(0, 10)}</TableCell>
+                  <TableCell className='text-right'>{money(order.amount)}</TableCell>
+                  <TableCell className='text-right'>{money(order.paid)}</TableCell>
+                  <TableCell className='text-right font-semibold text-red-700 dark:text-red-300'>
+                    {money(Math.max(0, order.amount - order.paid))}
+                  </TableCell>
+                  <TableCell>
+                    <a className='text-primary hover:underline' href={`tel:${order.phone}`}>
+                      {order.phone}
+                    </a>
+                  </TableCell>
+                </TableRow>
+              ))}
+              {debtOrders.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={8} className='text-muted-foreground py-10 text-center'>
+                    {lang === 'sw'
+                      ? 'Hakuna madeni yanayolingana na utafutaji.'
+                      : 'No matching outstanding balances.'}
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function ExpensesPage({
+  expenses,
+  lang,
+  query
+}: {
+  expenses: Expense[];
+  lang: Lang;
+  query: string;
+}) {
+  const rows = expenses.filter((expense) =>
+    [expense.id, expense.description, expense.category, expense.vendor]
+      .join(' ')
+      .toLowerCase()
+      .includes(query.toLowerCase())
+  );
+  const total = rows.reduce((sum, expense) => sum + expense.amount, 0);
+  const exportCsv = () => {
+    const values = [
+      ['ID', 'Date', 'Description', 'Category', 'Vendor', 'Payment method', 'Amount TZS', 'Notes'],
+      ...rows.map((row) => [
+        row.id,
+        row.date,
+        row.description,
+        row.category,
+        row.vendor,
+        row.method,
+        row.amount,
+        row.notes
+      ])
+    ];
+    const csv = values
+      .map((row) => row.map((cell) => `"${String(cell ?? '').replaceAll('"', '""')}"`).join(','))
+      .join('\n');
+    const url = URL.createObjectURL(new Blob(['\ufeff', csv], { type: 'text/csv;charset=utf-8' }));
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = 'simamia-expenses.csv';
+    anchor.click();
+    URL.revokeObjectURL(url);
+  };
+  return (
+    <div className='space-y-4'>
+      <SectionHeading
+        title={lang === 'sw' ? 'Matumizi ya biashara' : 'Business expenses'}
+        description={
+          lang === 'sw'
+            ? 'Rekodi gharama za uendeshaji na zihusishe na tarehe, aina na njia ya malipo.'
+            : 'Record operating costs with date, category and payment method.'
+        }
+        action={
+          <Button variant='outline' onClick={exportCsv}>
+            <Icons.fileTypeXls className='mr-2 size-4' />
+            {lang === 'sw' ? 'Pakua CSV' : 'Export CSV'}
+          </Button>
+        }
+      />
+      <div className='grid gap-4 sm:grid-cols-2'>
+        <Metric
+          title={lang === 'sw' ? 'Jumla ya matumizi' : 'Total expenses'}
+          value={money(total)}
+          change='TZS'
+          note={lang === 'sw' ? 'Kulingana na utafutaji wa sasa' : 'Matching current search'}
+          icon='trendingDown'
+        />
+        <Metric
+          title={lang === 'sw' ? 'Idadi ya rekodi' : 'Expense records'}
+          value={String(rows.length)}
+          change={lang === 'sw' ? 'rekodi' : 'records'}
+          note={lang === 'sw' ? 'Matumizi yaliyohifadhiwa' : 'Saved expenses'}
+          icon='post'
+        />
+      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>{lang === 'sw' ? 'Daftari la matumizi' : 'Expense register'}</CardTitle>
+        </CardHeader>
+        <CardContent className='overflow-x-auto'>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>ID</TableHead>
+                <TableHead>{lang === 'sw' ? 'Tarehe' : 'Date'}</TableHead>
+                <TableHead>{lang === 'sw' ? 'Maelezo' : 'Description'}</TableHead>
+                <TableHead>{lang === 'sw' ? 'Aina' : 'Category'}</TableHead>
+                <TableHead>{lang === 'sw' ? 'Mlipwaji' : 'Vendor'}</TableHead>
+                <TableHead>{lang === 'sw' ? 'Njia' : 'Method'}</TableHead>
+                <TableHead className='text-right'>{lang === 'sw' ? 'Kiasi' : 'Amount'}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map((expense) => (
+                <TableRow key={expense.id}>
+                  <TableCell className='font-mono text-xs'>{expense.id}</TableCell>
+                  <TableCell>{expense.date}</TableCell>
+                  <TableCell className='font-medium'>{expense.description}</TableCell>
+                  <TableCell>
+                    <Badge variant='outline'>{expense.category}</Badge>
+                  </TableCell>
+                  <TableCell>{expense.vendor || '—'}</TableCell>
+                  <TableCell>{expense.method}</TableCell>
+                  <TableCell className='text-right font-medium tabular-nums'>
+                    {money(expense.amount)}
+                  </TableCell>
+                </TableRow>
+              ))}
+              {rows.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={7} className='text-muted-foreground py-10 text-center'>
+                    {lang === 'sw'
+                      ? 'Bado hakuna matumizi yaliyorekodiwa.'
+                      : 'No expenses recorded yet.'}
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 function PaymentsPage({
   orders,
   lang,
@@ -2031,6 +2991,7 @@ function PaymentsPage({
         <Metric
           title={t('outstanding')}
           value={money(due)}
+          valueClassName={due > 0 ? 'text-red-700 dark:text-red-300' : undefined}
           change={String(orders.filter((item) => item.paid < item.amount).length)}
           note={lang === 'sw' ? 'Maagizo yenye salio' : 'Orders with balances'}
           icon='clock'
@@ -2066,6 +3027,7 @@ function PaymentsPage({
                   <TableHead>ID</TableHead>
                   <TableHead>{t('customer')}</TableHead>
                   <TableHead>{t('method')}</TableHead>
+                  <TableHead>{lang === 'sw' ? 'Aina' : 'Type'}</TableHead>
                   <TableHead>{t('paid')}</TableHead>
                   <TableHead>{t('due')}</TableHead>
                   <TableHead>{t('status')}</TableHead>
@@ -2077,26 +3039,34 @@ function PaymentsPage({
                     <TableCell className='font-mono text-xs'>{item.id}</TableCell>
                     <TableCell>{item.customer}</TableCell>
                     <TableCell>{item.method}</TableCell>
+                    <TableCell>{item.paymentType ?? '—'}</TableCell>
                     <TableCell className='tabular-nums'>{money(item.paid)}</TableCell>
-                    <TableCell className='tabular-nums'>
+                    <TableCell
+                      className={cn(
+                        'tabular-nums',
+                        item.amount > item.paid && 'font-medium text-red-700 dark:text-red-300'
+                      )}
+                    >
                       {money(Math.max(0, item.amount - item.paid))}
                     </TableCell>
                     <TableCell>
                       <Badge
                         variant='outline'
-                        className={
-                          item.paid >= item.amount
-                            ? 'text-primary'
-                            : 'text-amber-700 dark:text-amber-300'
-                        }
+                        className={paymentStatusClass(
+                          item.paid >= item.amount ? 'Paid' : item.paid > 0 ? 'Partial' : 'Unpaid'
+                        )}
                       >
                         {item.paid >= item.amount
                           ? lang === 'sw'
                             ? 'Imelipwa'
                             : 'Paid'
-                          : lang === 'sw'
-                            ? 'Inasubiri'
-                            : 'Pending'}
+                          : item.paid > 0
+                            ? lang === 'sw'
+                              ? 'Imelipiwa sehemu'
+                              : 'Partially paid'
+                            : lang === 'sw'
+                              ? 'Haijalipwa'
+                              : 'Unpaid'}
                       </Badge>
                     </TableCell>
                   </TableRow>
@@ -2110,59 +3080,603 @@ function PaymentsPage({
     </div>
   );
 }
+
+function escapeHtml(value: string) {
+  return value.replace(/[&<>"']/g, (character) => {
+    const entities: Record<string, string> = {
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;'
+    };
+    return entities[character];
+  });
+}
+
+function printInvoice(
+  order: Order,
+  businessName: string,
+  customer: Customer | undefined,
+  lang: Lang
+) {
+  const printWindow = window.open('', '_blank', 'width=900,height=1000');
+  if (!printWindow) {
+    toast.error(
+      lang === 'sw'
+        ? 'Ruhusu dirisha ibukizi ili kuchapisha ankara.'
+        : 'Allow pop-ups to print this invoice.'
+    );
+    return;
+  }
+
+  const invoiceNumber = `INV-${order.id.replace(/^ORD-/, '')}`;
+  const paidAmount = Math.min(Math.max(0, order.amount), Math.max(0, order.paid));
+  const balance = Math.max(0, order.amount - paidAmount);
+  const locale = lang === 'sw' ? 'sw-TZ' : 'en-TZ';
+  const issueDate = new Intl.DateTimeFormat(locale, {
+    dateStyle: 'long',
+    timeZone: 'Africa/Dar_es_Salaam'
+  }).format(new Date(order.date));
+  const state =
+    balance === 0
+      ? lang === 'sw'
+        ? 'IMELIPWA'
+        : 'PAID'
+      : paidAmount > 0
+        ? lang === 'sw'
+          ? 'IMELIPIWA SEHEMU'
+          : 'PARTIALLY PAID'
+        : lang === 'sw'
+          ? 'HAIJALIPWA'
+          : 'UNPAID';
+  const text = (sw: string, en: string) => (lang === 'sw' ? sw : en);
+  const safe = (value: string) => escapeHtml(value || '—');
+  const html = `<!doctype html>
+<html lang="${lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${invoiceNumber} · ${safe(businessName)}</title>
+<style>
+@page{size:A4;margin:16mm}*{box-sizing:border-box}body{margin:0;color:#17211d;font:14px/1.55 Inter,Arial,sans-serif;background:#fff}.sheet{max-width:820px;margin:36px auto;padding:44px;border:1px solid #e4e9e6;border-radius:18px}.top{display:flex;justify-content:space-between;gap:28px;align-items:flex-start;border-bottom:1px solid #e5ebe7;padding-bottom:28px}.brand{font-size:20px;font-weight:750;letter-spacing:-.03em}.eyebrow{text-transform:uppercase;letter-spacing:.15em;font-size:11px;color:#527064;font-weight:700}.number{font-size:29px;letter-spacing:-.04em;font-weight:750;margin:8px 0}.muted{color:#64746c}.meta{display:grid;grid-template-columns:1fr 1fr;gap:24px;padding:26px 0}.label{text-transform:uppercase;font-size:10px;letter-spacing:.12em;color:#74837b;font-weight:700;margin-bottom:5px}.value{font-weight:600}.status{display:inline-block;border:1px solid #bad8c7;background:#f1f8f3;color:#266342;border-radius:999px;padding:5px 10px;font-size:11px;font-weight:700}.table{width:100%;border-collapse:collapse;margin:12px 0 26px}.table th{text-align:left;color:#617168;background:#f5f8f6;text-transform:uppercase;letter-spacing:.08em;font-size:10px;padding:12px}.table td{padding:16px 12px;border-bottom:1px solid #e8edea}.right{text-align:right}.totals{margin-left:auto;width:min(100%,330px)}.total-row{display:flex;justify-content:space-between;padding:7px 0;color:#52635a}.grand{border-top:1px solid #dce5df;margin-top:8px;padding-top:14px;font-size:18px;color:#17211d;font-weight:750}.balance{margin-top:18px;padding:15px 17px;border-radius:12px;background:#f3f7f4;display:flex;justify-content:space-between;font-weight:700}.footer{border-top:1px solid #e5ebe7;margin-top:42px;padding-top:18px;color:#74837b;font-size:10px}.footer strong{display:block;color:#47584f;font-size:11px;margin-bottom:4px}.thanks{margin-top:30px;color:#385c49;font-weight:600}@media print{body{font-size:12px}.sheet{max-width:none;margin:0;padding:0;border:0;border-radius:0}.top{padding-bottom:20px}.meta{padding:20px 0}.footer{margin-top:28px}}
+</style></head><body><main class="sheet">
+<header class="top"><div><div class="brand">${safe(businessName)}</div><div class="muted">${text('Huduma za kitaalamu', 'Professional services')}</div></div><div class="right"><div class="eyebrow">${text('Ankara', 'Invoice')}</div><div class="number">${invoiceNumber}</div><span class="status">${state}</span></div></header>
+<section class="meta"><div><div class="label">${text('Ankara kwa', 'Billed to')}</div><div class="value">${safe(order.customer)}</div><div class="muted">${safe(customer?.phone ?? order.phone)}</div>${customer?.email ? `<div class="muted">${safe(customer.email)}</div>` : ''}${customer?.location ? `<div class="muted">${safe(customer.location)}</div>` : ''}</div><div><div class="label">${text('Taarifa za ankara', 'Invoice details')}</div><div class="value">${text('Tarehe ya kutolewa', 'Issue date')}: ${issueDate}</div><div class="muted">${text('Agizo', 'Service order')}: ${safe(order.id)}</div><div class="muted">${text('Njia ya malipo', 'Payment method')}: ${safe(order.method)}</div></div></section>
+<table class="table"><thead><tr><th>${text('Maelezo', 'Description')}</th><th>${text('Agizo', 'Reference')}</th><th class="right">${text('Kiasi', 'Amount')}</th></tr></thead><tbody><tr><td><strong>${safe(order.service)}</strong><br><span class="muted">${text('Huduma iliyokubaliwa', 'Agreed service')}</span></td><td>${safe(order.id)}</td><td class="right">${money(order.amount)}</td></tr></tbody></table>
+<section class="totals"><div class="total-row"><span>${text('Jumla ya huduma', 'Service total')}</span><strong>${money(order.amount)}</strong></div><div class="total-row"><span>${text('Malipo yaliyorekodiwa', 'Payments recorded')}</span><span>− ${money(paidAmount)}</span></div><div class="balance"><span>${text('Salio linalodaiwa', 'Balance due')}</span><span>${money(balance)}</span></div></section>
+<p class="thanks">${text('Asante kwa kuchagua huduma zetu.', 'Thank you for choosing our service.')}</p>
+<footer class="footer"><strong>${text('Hati ya malipo ya biashara', 'Business invoice')}</strong>${text('Hii ni ankara na kumbukumbu ya malipo. Si risiti ya kifedha ya TRA EFD/VFD. Toa risiti iliyoidhinishwa pale inapohitajika.', 'This is an invoice and payment record. It is not a TRA EFD/VFD fiscal receipt. Issue an approved fiscal receipt where required.')}</footer>
+</main><script>window.addEventListener('load',()=>setTimeout(()=>window.print(),250));</script></body></html>`;
+  printWindow.document.open();
+  printWindow.document.write(html);
+  printWindow.document.close();
+}
+
+function InvoicesPage({
+  orders,
+  customers,
+  businessName,
+  lang,
+  query
+}: {
+  orders: Order[];
+  customers: Customer[];
+  businessName: string;
+  lang: Lang;
+  query: string;
+}) {
+  const [filter, setFilter] = useState<'All' | 'Unpaid' | 'Partial' | 'Paid'>('All');
+  const t = (sw: string, en: string) => (lang === 'sw' ? sw : en);
+  const rows = orders
+    .filter((order) => {
+      const balance = Math.max(0, order.amount - order.paid);
+      const matchesFilter =
+        filter === 'All' ||
+        (filter === 'Paid' && balance === 0) ||
+        (filter === 'Partial' && order.paid > 0 && balance > 0) ||
+        (filter === 'Unpaid' && order.paid === 0);
+      const searchable = [
+        order.id,
+        `INV-${order.id.replace(/^ORD-/, '')}`,
+        order.customer,
+        order.service
+      ]
+        .join(' ')
+        .toLowerCase();
+      return matchesFilter && searchable.includes(query.trim().toLowerCase());
+    })
+    .toSorted((a, b) => b.date.localeCompare(a.date));
+  const billed = orders.reduce((sum, order) => sum + order.amount, 0);
+  const paid = orders.reduce((sum, order) => sum + Math.min(order.amount, order.paid), 0);
+  const due = Math.max(0, billed - paid);
+  const exportInvoices = () => {
+    const csvRows = [
+      [
+        'Invoice',
+        'Order',
+        'Customer',
+        'Issued',
+        'Service',
+        'Total TZS',
+        'Paid TZS',
+        'Balance TZS',
+        'Status'
+      ],
+      ...rows.map((order) => {
+        const balance = Math.max(0, order.amount - order.paid);
+        return [
+          `INV-${order.id.replace(/^ORD-/, '')}`,
+          order.id,
+          order.customer,
+          order.date,
+          order.service,
+          order.amount,
+          Math.min(order.amount, order.paid),
+          balance,
+          balance === 0 ? 'Paid' : order.paid > 0 ? 'Partially paid' : 'Unpaid'
+        ];
+      })
+    ];
+    const csv = csvRows
+      .map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(','))
+      .join('\n');
+    const href = URL.createObjectURL(new Blob(['\ufeff', csv], { type: 'text/csv;charset=utf-8' }));
+    const anchor = document.createElement('a');
+    anchor.href = href;
+    anchor.download = 'simamia-invoices.csv';
+    anchor.click();
+    URL.revokeObjectURL(href);
+  };
+
+  return (
+    <div className='space-y-5'>
+      <div className='grid gap-4 sm:grid-cols-3'>
+        <Metric
+          title={t('Jumla ya ankara', 'Total invoiced')}
+          value={money(billed)}
+          change={String(orders.length)}
+          note={t('ankara za maagizo', 'order invoices')}
+          icon='fileTypeDoc'
+        />
+        <Metric
+          title={t('Malipo yaliyorekodiwa', 'Payments recorded')}
+          value={money(paid)}
+          change={t('Kumbukumbu za biashara', 'Business records')}
+          note={t('Hayathibitishi malipo ya mtoa huduma', 'Does not verify provider settlement')}
+          icon='creditCard'
+        />
+        <Metric
+          title={t('Salio wazi', 'Open balances')}
+          value={money(due)}
+          change={String(orders.filter((order) => order.paid < order.amount).length)}
+          note={t('Ankara zenye salio', 'Invoices with a balance')}
+          icon='clock'
+        />
+      </div>
+
+      <Card>
+        <CardHeader className='gap-4 sm:flex-row sm:items-center sm:justify-between'>
+          <div>
+            <CardTitle>{t('Ankara za huduma', 'Service invoices')}</CardTitle>
+            <CardDescription>
+              {t(
+                'Nakala zinazoweza kuchapishwa kwa maagizo yaliyorekodiwa.',
+                'Print-ready copies generated from recorded service orders.'
+              )}
+            </CardDescription>
+          </div>
+          <Button variant='outline' onClick={exportInvoices}>
+            <Icons.fileTypeXls className='mr-2 size-4' />
+            {t('Pakua CSV', 'Export CSV')}
+          </Button>
+        </CardHeader>
+        <CardContent className='space-y-4'>
+          <div
+            className='flex flex-wrap gap-2'
+            role='group'
+            aria-label={t('Chuja ankara', 'Filter invoices')}
+          >
+            {(['All', 'Unpaid', 'Partial', 'Paid'] as const).map((option) => (
+              <Button
+                key={option}
+                size='sm'
+                variant={filter === option ? 'default' : 'outline'}
+                onClick={() => setFilter(option)}
+              >
+                {option === 'All'
+                  ? t('Zote', 'All')
+                  : option === 'Unpaid'
+                    ? t('Haijalipwa', 'Unpaid')
+                    : option === 'Partial'
+                      ? t('Sehemu', 'Partially paid')
+                      : t('Imelipwa', 'Paid')}
+              </Button>
+            ))}
+          </div>
+          <div className='overflow-x-auto rounded-lg border'>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t('Ankara / Agizo', 'Invoice / Order')}</TableHead>
+                  <TableHead>{t('Mteja', 'Customer')}</TableHead>
+                  <TableHead>{t('Huduma', 'Service')}</TableHead>
+                  <TableHead>{t('Tarehe', 'Issue date')}</TableHead>
+                  <TableHead className='text-right'>{t('Jumla', 'Total')}</TableHead>
+                  <TableHead className='text-right'>{t('Salio', 'Balance')}</TableHead>
+                  <TableHead>{t('Hali', 'Status')}</TableHead>
+                  <TableHead className='text-right'>{t('Hati', 'Document')}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rows.map((order) => {
+                  const balance = Math.max(0, order.amount - order.paid);
+                  const paidAmount = Math.min(order.amount, order.paid);
+                  const state = balance === 0 ? 'Paid' : paidAmount > 0 ? 'Partial' : 'Unpaid';
+                  const customer = customers.find((item) => item.name === order.customer);
+                  return (
+                    <TableRow key={order.id}>
+                      <TableCell>
+                        <div className='font-mono text-xs font-semibold'>
+                          INV-{order.id.replace(/^ORD-/, '')}
+                        </div>
+                        <div className='text-muted-foreground mt-1 font-mono text-[10px]'>
+                          {order.id}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className='font-medium'>{order.customer}</div>
+                        <div className='text-muted-foreground mt-1 text-xs'>
+                          {customer?.phone ?? order.phone}
+                        </div>
+                      </TableCell>
+                      <TableCell className='min-w-44'>{order.service}</TableCell>
+                      <TableCell className='whitespace-nowrap'>
+                        {new Intl.DateTimeFormat(lang === 'sw' ? 'sw-TZ' : 'en-TZ', {
+                          dateStyle: 'medium',
+                          timeZone: 'Africa/Dar_es_Salaam'
+                        }).format(new Date(order.date))}
+                      </TableCell>
+                      <TableCell className='text-right tabular-nums'>
+                        {money(order.amount)}
+                        <div className='text-muted-foreground mt-1 text-[10px]'>
+                          {t('Imelipwa', 'Paid')}: {money(paidAmount)}
+                        </div>
+                      </TableCell>
+                      <TableCell
+                        className={cn(
+                          'text-right font-medium tabular-nums',
+                          balance > 0 && 'text-red-700 dark:text-red-300'
+                        )}
+                      >
+                        {money(balance)}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant='outline' className={paymentStatusClass(state)}>
+                          {state === 'Paid'
+                            ? t('Imelipwa', 'Paid')
+                            : state === 'Partial'
+                              ? t('Imelipiwa sehemu', 'Partially paid')
+                              : t('Haijalipwa', 'Unpaid')}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className='text-right'>
+                        <Button
+                          size='sm'
+                          variant='outline'
+                          onClick={() => printInvoice(order, businessName, customer, lang)}
+                        >
+                          <Icons.fileTypePdf className='mr-2 size-4' />
+                          {t('Chapisha', 'Print')}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+                {rows.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={8} className='text-muted-foreground py-12 text-center'>
+                      {t(
+                        'Hakuna ankara zinazolingana na kichujio.',
+                        'No invoices match this filter.'
+                      )}
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+          <p className='text-muted-foreground text-xs'>
+            {t(
+              'Nakala hizi ni ankara za biashara na kumbukumbu ya malipo. Si risiti ya TRA EFD/VFD wala uthibitisho wa malipo ya simu.',
+              'These are business invoices and payment records. They are not TRA EFD/VFD fiscal receipts or proof of mobile-money settlement.'
+            )}
+          </p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 function ReportsPage({
   orders,
+  expenses,
   lang,
   onExport
 }: {
   orders: Order[];
+  expenses: Expense[];
   lang: Lang;
-  onExport: () => void;
+  onExport: (orders?: Order[]) => void;
 }) {
   const t = (key: keyof typeof words.sw) => words[lang][key] ?? words.en[key];
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Dar_es_Salaam' }).format(
+    new Date()
+  );
+  const [startDate, setStartDate] = useState(`${today.slice(0, 7)}-01`);
+  const [endDate, setEndDate] = useState(today);
+  const inRange = useMemo(
+    () =>
+      orders.filter((order) => {
+        const day = new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Dar_es_Salaam' }).format(
+          new Date(order.date)
+        );
+        return day >= startDate && day <= endDate;
+      }),
+    [orders, startDate, endDate]
+  );
+  const inRangeExpenses = useMemo(
+    () => expenses.filter((expense) => expense.date >= startDate && expense.date <= endDate),
+    [expenses, startDate, endDate]
+  );
+  const paid = inRange.reduce(
+    (sum, order) => sum + Math.min(order.amount, Math.max(0, order.paid)),
+    0
+  );
+  const billed = inRange.reduce((sum, order) => sum + Math.max(0, order.amount), 0);
+  const due = Math.max(0, billed - paid);
+  const expenseTotal = inRangeExpenses.reduce((sum, expense) => sum + expense.amount, 0);
+  const completionRate =
+    inRange.length === 0
+      ? 0
+      : Math.round(
+          (inRange.filter((order) => order.status === 'Completed').length / inRange.length) * 100
+        );
+  const statusRows = ['New', 'In progress', 'Ready', 'Completed', 'Cancelled'].map((status) => ({
+    status,
+    count: inRange.filter((order) => order.status === status).length
+  }));
+  const serviceRows = [...new Set(inRange.map((order) => order.service))]
+    .map((service) => ({
+      service,
+      count: inRange.filter((order) => order.service === service).length,
+      billed: inRange
+        .filter((order) => order.service === service)
+        .reduce((sum, order) => sum + order.amount, 0)
+    }))
+    .toSorted((a, b) => b.count - a.count);
+  const dailyRows = [
+    ...new Set(
+      inRange.map((order) =>
+        new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Dar_es_Salaam' }).format(
+          new Date(order.date)
+        )
+      )
+    )
+  ]
+    .toSorted()
+    .map((day) => ({
+      day,
+      count: inRange.filter(
+        (order) =>
+          new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Dar_es_Salaam' }).format(
+            new Date(order.date)
+          ) === day
+      ).length
+    }));
   return (
     <div className='space-y-4'>
       <SectionHeading
         title={lang === 'sw' ? 'Ripoti za biashara' : 'Business reports'}
         description={
           lang === 'sw'
-            ? 'Pakua daftari la maagizo kama CSV.'
-            : 'Download the order register as CSV.'
+            ? 'Chuja maagizo kwa tarehe na kagua mauzo, salio na utendaji.'
+            : 'Filter orders by date and review billed value, balances and operations.'
         }
         action={
-          <Button variant='outline' onClick={onExport}>
+          <Button variant='outline' onClick={() => onExport(inRange)}>
             <Icons.fileTypeXls className='mr-2 size-4' />
             {t('export')}
           </Button>
         }
       />
-      <div className='grid gap-4 md:grid-cols-3'>
+      <Card>
+        <CardContent className='flex flex-wrap items-end gap-4 p-4'>
+          <div className='grid gap-2'>
+            <Label htmlFor='report-start'>{lang === 'sw' ? 'Kuanzia' : 'From'}</Label>
+            <Input
+              id='report-start'
+              type='date'
+              value={startDate}
+              max={endDate}
+              onChange={(event) => setStartDate(event.target.value)}
+            />
+          </div>
+          <div className='grid gap-2'>
+            <Label htmlFor='report-end'>{lang === 'sw' ? 'Hadi' : 'To'}</Label>
+            <Input
+              id='report-end'
+              type='date'
+              value={endDate}
+              min={startDate}
+              onChange={(event) => setEndDate(event.target.value)}
+            />
+          </div>
+          <p className='text-muted-foreground pb-2 text-xs'>
+            {inRange.length} {lang === 'sw' ? 'maagizo katika kipindi' : 'orders in period'} · EAT
+          </p>
+        </CardContent>
+      </Card>
+      <div className='grid gap-4 sm:grid-cols-2 xl:grid-cols-3'>
         <Metric
-          title={t('revenue')}
-          value={money(orders.reduce((sum, item) => sum + item.paid, 0))}
-          change='+12%'
-          note={t('paid')}
+          title={lang === 'sw' ? 'Thamani iliyoagizwa' : 'Billed value'}
+          value={money(billed)}
+          change='TZS'
+          note={
+            lang === 'sw' ? 'Jumla ya maagizo kwenye kipindi' : 'Order value in selected period'
+          }
           icon='trendingUp'
         />
         <Metric
-          title={t('totalOrders')}
-          value={String(orders.length)}
-          change='+8%'
-          note={lang === 'sw' ? 'Jumla ya rekodi' : 'All records'}
+          title={lang === 'sw' ? 'Imerekodiwa kulipwa' : 'Recorded paid'}
+          value={money(paid)}
+          change='TZS'
+          note={
+            lang === 'sw'
+              ? 'Jumla ya malipo kwenye maagizo haya'
+              : 'Aggregate recorded against these orders'
+          }
           icon='post'
         />
         <Metric
           title={t('outstanding')}
-          value={money(orders.reduce((sum, item) => sum + Math.max(0, item.amount - item.paid), 0))}
+          value={money(due)}
           change='TZS'
-          note={t('due')}
+          note={lang === 'sw' ? 'Salio la maagizo ya kipindi' : 'Balances on orders in this period'}
           icon='creditCard'
         />
+        <Metric
+          title={lang === 'sw' ? 'Matumizi' : 'Expenses'}
+          value={money(expenseTotal)}
+          change={`${inRangeExpenses.length}`}
+          note={
+            lang === 'sw'
+              ? 'Rekodi za matumizi kwenye kipindi'
+              : 'Expense records in selected period'
+          }
+          icon='trendingDown'
+        />
+        <Metric
+          title={lang === 'sw' ? 'Salio baada ya matumizi' : 'Paid less expenses'}
+          value={money(paid - expenseTotal)}
+          change='TZS'
+          note={
+            lang === 'sw'
+              ? 'Malipo yaliyorekodiwa ukitoa matumizi'
+              : 'Recorded payments minus expenses'
+          }
+          icon='trendingUp'
+        />
+        <Metric
+          title={lang === 'sw' ? 'Kazi zilizokamilika' : 'Jobs completed'}
+          value={`${completionRate}%`}
+          change={`${inRange.filter((order) => order.status === 'Completed').length}/${inRange.length}`}
+          note={lang === 'sw' ? 'Kati ya maagizo kwenye kipindi' : 'Of orders in selected period'}
+          icon='check'
+        />
       </div>
+      <div className='grid gap-4 lg:grid-cols-2'>
+        <Card>
+          <CardHeader>
+            <CardTitle>{lang === 'sw' ? 'Mgawanyo wa hali' : 'Orders by status'}</CardTitle>
+            <CardDescription>
+              {lang === 'sw' ? 'Idadi ya maagizo kwa hali' : 'Order count by workflow status'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className='space-y-3'>
+            {statusRows.map(({ status, count }) => (
+              <div key={status} className='flex items-center gap-3 text-sm'>
+                <span className='w-28'>{status}</span>
+                <div className='bg-muted h-2 flex-1 overflow-hidden rounded-full'>
+                  <div
+                    className='bg-primary h-full rounded-full'
+                    style={{ width: `${inRange.length ? (count / inRange.length) * 100 : 0}%` }}
+                  />
+                </div>
+                <span className='w-8 text-right tabular-nums'>{count}</span>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>{lang === 'sw' ? 'Huduma maarufu' : 'Service performance'}</CardTitle>
+            <CardDescription>
+              {lang === 'sw'
+                ? 'Idadi na thamani ya maagizo kwa huduma'
+                : 'Order count and billed value by service'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className='space-y-3'>
+              {serviceRows.length ? (
+                serviceRows.map((row) => (
+                  <div
+                    key={row.service}
+                    className='flex items-center justify-between gap-3 border-b pb-3 text-sm last:border-0'
+                  >
+                    <span className='font-medium'>
+                      {row.service}
+                      <span className='text-muted-foreground ml-2'>({row.count})</span>
+                    </span>
+                    <span className='tabular-nums'>{money(row.billed)}</span>
+                  </div>
+                ))
+              ) : (
+                <p className='text-muted-foreground text-sm'>
+                  {lang === 'sw' ? 'Hakuna data kwenye kipindi.' : 'No data in this period.'}
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            {lang === 'sw' ? 'Kiasi cha maagizo kwa siku' : 'Daily order volume'}
+          </CardTitle>
+          <CardDescription>
+            {lang === 'sw'
+              ? 'Idadi ya maagizo kwa tarehe ya huduma'
+              : 'Orders grouped by service date'}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className='overflow-x-auto'>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{lang === 'sw' ? 'Tarehe' : 'Date (EAT)'}</TableHead>
+                <TableHead className='text-right'>{lang === 'sw' ? 'Maagizo' : 'Orders'}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {dailyRows.map((row) => (
+                <TableRow key={row.day}>
+                  <TableCell>{row.day}</TableCell>
+                  <TableCell className='text-right'>{row.count}</TableCell>
+                </TableRow>
+              ))}
+              {dailyRows.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={2} className='text-muted-foreground py-8 text-center'>
+                    {lang === 'sw'
+                      ? 'Hakuna maagizo kwenye kipindi.'
+                      : 'No orders in selected period.'}
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+      <p className='text-muted-foreground text-xs'>
+        {lang === 'sw'
+          ? 'Malipo hapa ni jumla iliyorekodiwa kwenye agizo; tarehe ya kila malipo haijahifadhiwa. Takwimu hizi si taarifa ya fedha iliyokaguliwa.'
+          : 'Paid amounts are aggregates stored on each order; individual payment dates are not stored. These figures are not audited financial statements.'}
+      </p>
       <OrdersTable
-        orders={orders}
+        orders={inRange}
         lang={lang}
-        title={lang === 'sw' ? 'Muhtasari wa maagizo' : 'Order summary'}
+        title={
+          lang === 'sw' ? 'Daftari la maagizo kwenye kipindi' : 'Order register for selected period'
+        }
       />
     </div>
   );
@@ -2385,9 +3899,7 @@ function IntegrationsPage({ lang }: { lang: Lang }) {
   );
 }
 function ApiPage({ lang }: { lang: Lang }) {
-  const apiBaseUrl = (
-    process.env.NEXT_PUBLIC_HUDUMADESK_API_URL || 'http://localhost:8080/api/v1'
-  ).replace(/\/+$/, '');
+  const apiBaseUrl = API_BASE_URL;
   const [apiStatus, setApiStatus] = useState<'checking' | 'online' | 'offline'>('checking');
   useEffect(() => {
     let active = true;
@@ -2554,11 +4066,13 @@ function SettingsPage({
   lang,
   businessName,
   setBusinessName,
+  canReset,
   onReset
 }: {
   lang: Lang;
   businessName: string;
   setBusinessName: (value: string) => void;
+  canReset: boolean;
   onReset: () => void;
 }) {
   return (
@@ -2608,9 +4122,16 @@ function SettingsPage({
             </p>
             <p className='text-muted-foreground mt-1 text-xs'>{words[lang].preview}</p>
           </div>
-          <Button variant='destructive' onClick={onReset}>
+          <Button variant='destructive' onClick={onReset} disabled={!canReset}>
             {lang === 'sw' ? 'Rejesha data ya mfano' : 'Reset demo data'}
           </Button>
+          {!canReset && (
+            <p className='text-muted-foreground text-xs'>
+              {lang === 'sw'
+                ? 'Kurejesha data kumezimwa wakati API ya pamoja imeunganishwa.'
+                : 'Reset is disabled while shared API records are connected.'}
+            </p>
+          )}
         </CardContent>
       </Card>
     </div>

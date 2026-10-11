@@ -46,6 +46,79 @@
   }
 }
 
+@layer components {
+  .status-badge-new,
+  .status-badge-progress,
+  .status-badge-ready,
+  .status-badge-closed,
+  .status-badge-partial,
+  .status-badge-unpaid {
+    border-width: 1px;
+  }
+
+  .status-badge-new {
+    color: #1d4ed8;
+    background: #eff6ff;
+    border-color: #bfdbfe;
+  }
+
+  .status-badge-progress,
+  .status-badge-partial {
+    color: #78350f;
+    background: #fef3c7;
+    border-color: #fcd34d;
+  }
+
+  .status-badge-ready {
+    color: #166534;
+    background: #dcfce7;
+    border-color: #86efac;
+  }
+
+  .status-badge-closed {
+    color: #475569;
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+  }
+
+  .status-badge-unpaid {
+    color: #b91c1c;
+    background: #fef2f2;
+    border-color: #fecaca;
+  }
+
+  .dark .status-badge-new {
+    color: #bfdbfe;
+    background: #172554;
+    border-color: #1e40af;
+  }
+
+  .dark .status-badge-progress,
+  .dark .status-badge-partial {
+    color: #fde68a;
+    background: #422006;
+    border-color: #92400e;
+  }
+
+  .dark .status-badge-ready {
+    color: #bbf7d0;
+    background: #052e16;
+    border-color: #166534;
+  }
+
+  .dark .status-badge-closed {
+    color: #cbd5e1;
+    background: #1e293b;
+    border-color: #475569;
+  }
+
+  .dark .status-badge-unpaid {
+    color: #fecaca;
+    background: #450a0a;
+    border-color: #991b1b;
+  }
+}
+
 /* View Transition Wave Effect */
 ::view-transition-old(root),
 ::view-transition-new(root) {

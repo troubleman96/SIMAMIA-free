@@ -14,9 +14,11 @@ pnpm-lock.yaml
 # next.js
 /.next/
 /out/
+/landing/dist/
 
 # production
 /build
+/api/data/
 
 # misc
 .DS_Store
@@ -29,6 +31,7 @@ yarn-error.log*
 
 # local env files
 .env*
+!.env.server.example
 .env*.local
 
 # vercel

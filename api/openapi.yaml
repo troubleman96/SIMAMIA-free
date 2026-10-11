@@ -1,19 +1,20 @@
 openapi: 3.1.0
 info:
-  title: HudumaDesk Service Management API
+  title: Simamia Service Management API
   version: 0.1.0
   description: >-
-    Go MVP reference API for service operations in Tanzania. This preview API is
-    unauthenticated, uses in-memory sample data and is not safe for production
-    customer information. All responses use JSON envelopes; payments are derived
-    from order records and are read-only.
+    Go MVP API for service operations in Tanzania. Data endpoints require a Camel Accounts
+    bearer token and scope records to the authenticated account. SQLite remains single-server
+    storage; payments are derived from order records and are read-only.
 servers:
   - url: http://localhost:8080/api/v1
     description: Local Go API
-security: []
+security:
+  - camelBearer: []
 paths:
   /health:
     get:
+      security: []
       operationId: getHealth
       summary: Check service health and local defaults
       responses:
@@ -26,7 +27,7 @@ paths:
               example:
                 data:
                   status: ok
-                  service: hudumadesk-api
+                  service: simamia-api
                   version: v1
                   time_zone: Africa/Dar_es_Salaam
                   currency: TZS
@@ -42,7 +43,7 @@ paths:
     get:
       operationId: listRecords
       summary: List and filter a collection
-      description: Supports orders, customers, services and team. Use `/payments` for the separate read-only payment ledger.
+      description: Supports businesses, orders, customers, services, team and expenses. Records are scoped to the authenticated Camel Accounts subject. Use `/payments` for the separate read-only order balance ledger.
       parameters:
         - name: q
           in: query
@@ -81,8 +82,8 @@ paths:
           $ref: '#/components/responses/MethodNotAllowed'
     post:
       operationId: createRecord
-      summary: Create an order, customer, service or team record
-      description: Resource-specific required fields are validated. Payments cannot be created through this API.
+      summary: Create a business profile, order, customer, service, team or expense record
+      description: Resource-specific required fields are validated. Payment entries remain aggregate order updates; the payment ledger is read-only.
       requestBody:
         required: true
         content:
@@ -211,6 +212,11 @@ paths:
         '405':
           $ref: '#/components/responses/MethodNotAllowed'
 components:
+  securitySchemes:
+    camelBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: OAuth2 access token
   parameters:
     Resource:
       name: resource
@@ -219,7 +225,7 @@ components:
       description: Supported collection.
       schema:
         type: string
-        enum: [orders, customers, services, team]
+        enum: [businesses, orders, customers, services, team, expenses]
     RequestId:
       name: X-Request-ID
       in: header

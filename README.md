@@ -1,40 +1,118 @@
-# HudumaDesk Tanzania
+# Simamia
 
-A Swahili-first service-management dashboard with a companion Go workflow API. The frontend is based on the MIT-licensed [Next.js shadcn dashboard starter](https://github.com/Kiranism/next-shadcn-dashboard-starter); HudumaDesk product code, API, specification, and documentation live together in this monorepo.
+Simamia is a Swahili-first business operations platform for small service and retail businesses. It combines a public website, a browser app, and a Go API in one repository. Owners sign in with Camel Accounts, create a Simamia business profile, and choose a workflow template.
 
-## Demo safety and data model
+## Repository map
 
-- The UI uses fabricated sample records in browser `localStorage`; its edits stay in that browser.
-- The Go API is a separate, unauthenticated reference service with a shared in-memory sample store. API writes do not update the UI's local records.
-- API data resets when the Go process restarts. Anyone who can reach a public demo API can read, add, edit, or delete its sample records.
-- Use only synthetic test data. This preview has no tenant isolation, authentication, production privacy controls, or real payment, SMS, email, or AI connections. Do not enter customer data, credentials, or payment details.
-- Payment rows are derived from orders; the API does not process payments and its ledger is not a TRA fiscal receipt.
+| Path | Purpose |
+| --- | --- |
+| `src/` | Next.js 16 app: dashboard, Camel Accounts sign-in, business onboarding, and product UI |
+| `src/features/onboarding/business-templates.ts` | Eight workflow templates and their labels, statuses, intake fields, and sample services |
+| `landing/` | Public `simamia.online` website (plain HTML, CSS, and JavaScript) |
+| `api/` | Go HTTP API, SQLite persistence, and OpenAPI contract |
+| `deploy/` | Caddy and host-Nginx configuration for production routing |
+| `compose.yaml` | Local/standalone deployment for landing, app, API, and Caddy |
+| `docs/` | Product notes, API examples, integration research, and deployment procedures |
 
-## Run both services locally
+## Business workflows
 
-Terminal 1 — frontend:
+The onboarding flow has two steps: choose a business type, then enter the business name and phone number. The Tanzania phone field fixes the `+255` prefix. Available templates are:
+
+1. General service business
+2. Salon and barber
+3. Garage and auto service
+4. Phone and electronics repair
+5. Laundry and shoe care
+6. Butcher and meat shop
+7. Mobile money agent
+8. Tailor and fashion house
+
+Templates currently tailor labels, statuses, intake fields, and example services. They are starter workflows, not complete vertical products; specialized inventory, booking, float reconciliation, and compliance behavior may still need implementation.
+
+## Current product boundaries
+
+- Sign-in is handled by Camel Accounts. Simamia stores its own business profile after authentication.
+- The Go API validates Camel Accounts access tokens and scopes stored records to the token subject.
+- The API persists businesses, orders, customers, services, team records, and expenses in SQLite. Its default local database is `api/data/simamia.db`.
+- Some dashboard data can fall back to fabricated browser-local demo records when the API is unavailable. Do not treat demo values as real business data.
+- Payment records are operational ledger entries derived from work records. Simamia does not process a mobile-money transaction or issue a TRA fiscal receipt.
+- SMS, email, AI, and payment-provider connections are not fully implemented. Read [`docs/integrations.md`](docs/integrations.md) for current status and provider notes.
+- SQLite is intended for a single API instance. Production still needs tested backups, shared-business roles, and operational monitoring before scaling out.
+
+## Requirements
+
+- Bun 1.x (recommended) or a compatible Node.js/npm installation for the Next.js app and landing page
+- Go 1.26 or the version declared by `api/go.mod` for local API development
+- Docker Engine and the Compose plugin for the production-like stack
+
+## Local development
+
+Install the root dependencies (the landing page is a Bun workspace):
 
 ```bash
-npm install
-NEXT_PUBLIC_HUDUMADESK_API_URL=http://localhost:8080/api/v1 npm run dev -- --hostname 0.0.0.0
+bun install
 ```
 
-Terminal 2 — workflow API:
+Run each service in its own terminal.
+
+**1. API** — listens on `http://localhost:8080` by default:
 
 ```bash
 cd api
-go test ./...
 go run .
 ```
 
-Open the UI at `http://localhost:3000`. The **API & docs** page checks the configured API health endpoint and shows the live base URL. The API base is `http://localhost:8080/api/v1`; its OpenAPI contract is in [`api/openapi.yaml`](api/openapi.yaml), and hands-on examples are in [`docs/demo-testing.md`](docs/demo-testing.md).
-
-## Build and test
+**2. App** — configure the public Camel Accounts client and local API URL at build/dev time:
 
 ```bash
-npm run typecheck
-npm run build
-go -C api test ./...
+NEXT_PUBLIC_CAMEL_ACCOUNTS_URL=https://accounts.camelcreatives.com \
+NEXT_PUBLIC_CAMEL_ACCOUNTS_CLIENT_ID=simamia-35sj96 \
+NEXT_PUBLIC_SIMAMIA_API_URL=http://localhost:8080/api/v1 \
+bun run dev
 ```
 
-The static Next.js build is written to `out/`. For the interactive developer preview, use `npm run dev` as above. See the [management guide](docs/management-guide.md), [demo testing guide](docs/demo-testing.md), and [provider notes](docs/integrations.md) for more context.
+Open `http://localhost:3000`. For sign-in to complete, the Camel Accounts client must allow the app's callback URL for the local origin. See [`docs/deployment.md`](docs/deployment.md) for the production client settings.
+
+**3. Public landing page** — runs at `http://localhost:4173`:
+
+```bash
+cd landing
+bun run dev
+```
+
+Or run the services together in containers:
+
+```bash
+cp .env.server.example .env
+docker compose up --build
+```
+
+The standalone Compose configuration expects DNS to point to this machine and binds ports 80/443 for Caddy. For development with no public DNS/TLS, run the individual services above.
+
+## Environment configuration
+
+- `.env.server.example` lists public app build settings and API runtime settings for Compose. Copy it to `.env` for a server deployment and review every value before building.
+- `env.example.txt` is the original dashboard starter's broader environment reference. Clerk variables there are legacy template settings; Simamia sign-in uses Camel Accounts.
+- Never commit `.env`, `.env.local`, access tokens, client secrets, or production database files.
+
+## Build and quality commands
+
+```bash
+bun run typecheck
+bun run build
+cd api && go test ./...
+cd landing && bun run build
+```
+
+The Next.js app is configured for static export and writes the deployable site to `out/`. The landing build writes to `landing/dist/`. Both generated directories are ignored by Git.
+
+## API and deployment references
+
+- API contract: [`api/openapi.yaml`](api/openapi.yaml)
+- API setup and configuration: [`api/README.md`](api/README.md)
+- Local API examples: [`docs/demo-testing.md`](docs/demo-testing.md)
+- Production deployment, DNS, TLS, and backups: [`docs/deployment.md`](docs/deployment.md)
+- Product/operations guide: [`docs/management-guide.md`](docs/management-guide.md)
+- Integration status: [`docs/integrations.md`](docs/integrations.md)
+- Vertical market and onboarding plan: [`docs/vertical-market-and-onboarding-plan.md`](docs/vertical-market-and-onboarding-plan.md)
+- Broader service-platform upgrade plan: [`docs/service-platform-upgrade-plan.md`](docs/service-platform-upgrade-plan.md)

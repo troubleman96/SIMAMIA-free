@@ -1,7 +1,10 @@
 {
-  "name": "hudumadesk-tanzania",
+  "name": "simamia",
   "version": "1.0.0",
   "private": true,
+  "workspaces": [
+    "landing"
+  ],
   "author": {
     "name": "Kiran",
     "url": "https://github.com/Kiranism"
@@ -37,6 +40,7 @@
     "@tanstack/react-query-devtools": "^5.95.2",
     "@tanstack/react-table": "^8.21.3",
     "ai": "^7.0.44",
+    "camel-accounts": "0.2.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",

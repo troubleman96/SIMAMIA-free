@@ -1,14 +1,14 @@
-# HudumaDesk Management Guide
+# Simamia Management Guide
 
 **Audience:** service-business owners and supervisors in Tanzania
 **Language:** simple Kiswahili by default; English is available in the language switcher
-**Status:** MVP preview, version 0.1
+**Status:** early implementation; workflow templates and Camel Accounts integration are present, with production capabilities still in progress
 
 ## 1. What this MVP is for
 
-HudumaDesk is a service-operations workspace for small teams that take requests, schedule work, assign staff, collect payments and keep customers informed. It is intentionally service-agnostic: examples include laundry, cleaning, repairs, maintenance, salons and other appointment/job-based businesses.
+Simamia is a service-operations workspace for small teams that take requests, schedule work, assign staff, collect payments and keep customers informed. It is intentionally service-agnostic: examples include laundry, cleaning, repairs, maintenance, salons and other appointment/job-based businesses.
 
-The preview includes a working navigation shell and editable sample records for **orders, customers, services, schedule, team, payment balances, reports, message drafts, a local assistant, integrations, API reference and settings**. Create/edit/advance actions update the preview data. Data is saved in the current browser's local storage; it is not a shared team workspace or a production database.
+The app currently includes **orders/jobs, customers, services, schedule, team, payments, debts, expenses, invoices, reports, message drafts, an assistant page, integrations, API reference and settings**. Camel Accounts handles phone/password sign-in; new users then create a business profile and choose one of eight workflow templates. The templates configure labels, statuses and intake fields. The authenticated Go API scopes records to the Camel subject, but does not yet implement shared business memberships or staff permissions. Provider screens remain unconnected.
 
 ## 2. Everyday workflow
 
@@ -23,8 +23,8 @@ The preview includes a working navigation shell and editable sample records for 
 ## 3. Tanzania operating context
 
 - The Bank of Tanzania's **National Payment Systems Annual Report 2025** describes mobile money as dominating retail payments. It reports 75.78 million active mobile-money subscriptions and 1.98 million agents in 2025. Subscriptions are not the same measure as unique individuals. The product therefore records common wallet methods such as M-Pesa, Mixx by Yas, Airtel Money and HaloPesa, alongside cash and bank transfer, without assuming that a wallet payment has been verified.
-- The Tanzania Revenue Authority (TRA) says sellers in scope are obliged to issue a receipt or invoice for each sale/service and describes Electronic Fiscal Devices. Applicability depends on the taxpayer and current rules. **An order record, payment entry or receipt flag in HudumaDesk is not a TRA fiscal receipt and is not tax advice.** Confirm the business's obligations with TRA or a tax professional and use an approved EFD/VFD process where required.
-- Customer names, phone numbers, email addresses and service history are personal data. Tanzania's Personal Data Protection Act 2022 and the Personal Data Protection Commission (PDPC) should inform a real deployment's notices, access control, retention, data-subject handling, processor contracts and any applicable registration duties. This preview contains synthetic sample identities; do not replace them with real customer data.
+- The Tanzania Revenue Authority (TRA) says sellers in scope are obliged to issue a receipt or invoice for each sale/service and describes Electronic Fiscal Devices. Applicability depends on the taxpayer and current rules. **An order record, payment entry or receipt flag in Simamia is not a TRA fiscal receipt and is not tax advice.** Confirm the business's obligations with TRA or a tax professional and use an approved EFD/VFD process where required.
+- Customer names, phone numbers, email addresses and service history are personal data. Tanzania's Personal Data Protection Act 2022 and the Personal Data Protection Commission (PDPC) should inform a real deployment's notices, access control, retention, data-subject handling, processor contracts and any applicable registration duties. Use synthetic identities in local development. The current deployment is not yet ready for production personal data.
 - Dar es Salaam/EAT (UTC+3) and TZS are the defaults. Multi-region, Zanzibar-specific, VAT/tax calculation, fiscal-device integration, mobile-money reconciliation, stock/parts and low-connectivity offline sync require local operational validation before production.
 
 ## 4. Role and control suggestions (production design)
@@ -37,7 +37,7 @@ The preview includes a working navigation shell and editable sample records for 
 | Cashier / finance | Payments, balances and approved receipt workflow; not unrestricted customer exports |
 | Support / auditor | Narrowly scoped, time-bound, logged read access |
 
-The demo has no authentication or role enforcement. Do not enter real or sensitive business data until a protected production environment exists.
+Camel Accounts authenticates users and the API scopes data to each authenticated subject. Business membership, staff roles, audit history and production-grade storage are still missing; avoid production data until those controls and the deployment have been reviewed.
 
 ## 5. Screen-by-screen controls
 
@@ -48,7 +48,10 @@ The demo has no authentication or role enforcement. Do not enter real or sensiti
 - **Schedule:** weekly visual schedule; selecting a listed booking advances its workflow state.
 - **Team:** add staff records, call a listed work phone, switch active/on-shift state.
 - **Payments:** view paid/due balances and record a collection; no payment is collected by this screen.
-- **Reports:** sample trend cards and service/status breakdown; export underlying sample order records.
+- **Debts:** review outstanding order balances by customer and order; the amount is derived from order value minus aggregate recorded payments.
+- **Expenses:** record operating expenses with category, date, payee, method and notes; review the register and export CSV.
+- **Invoices:** print an order-based business invoice with recorded paid amount and balance. Invoice numbers derive from order IDs; line items, tax rules, fiscal numbering and per-payment dates are not implemented. It is not a TRA EFD/VFD receipt.
+- **Reports:** choose an EAT date range to view order value, recorded payments, outstanding debt, expenses, paid less expenses, completion rate, status/service breakdown and daily volume; export the filtered order register. Payment aggregates have no individual payment dates, so this does not report cash received during that date range.
 - **Messages:** prepare a draft; it is not sent. The exact provider docs are linked on-screen.
 - **AI assistant:** deterministic, local summary helper over sample data; no Ngamia request is made by this preview.
 - **Integrations:** SendAfrica, MailAfrica and Ngamia connection status and documentation links. All currently show *Not connected*.
@@ -57,17 +60,17 @@ The demo has no authentication or role enforcement. Do not enter real or sensiti
 
 ## 6. Preview data and reliability
 
-The landing URL serves a **static, unauthenticated preview**. Its interactions run in the visitor's browser and persist only in that browser's local storage. Sample dashboards may show illustrative aggregates that are not recalculated accounting statements. Refreshing does not share changes with anyone else. Clearing site storage or choosing **Reset demo** restores the seed records.
+The frontend requires Camel Accounts sign-in. The dashboard calls the Go API when available and falls back to browser-local demo data if the API cannot be reached. Browser-local data is not a shared or backed-up workspace.
 
-The Go API in `api/` is a separate local MVP reference service with in-memory seed records. Run it using `cd api && go run .`; test it using `go test ./...`. It resets when the process restarts. The static preview is not wired to a hosted Go API and there is no database, login, backups, rate limit, access log, authentication, payment gateway or message delivery.
+The Go API in `api/` validates bearer tokens through Camel Accounts userinfo and scopes records by account subject. Run it using `cd api && go run .`; SQLite data persists across restarts. Configure `CAMEL_ACCOUNTS_URL` for the API and `NEXT_PUBLIC_SIMAMIA_API_URL` for the frontend. Expenses are separate records; order payment amounts remain aggregates, not an immutable payment event ledger. The API has no business membership model, staff roles, backups, rate limit, payment gateway or message delivery. Apply the Simamia OAuth client migration in Camel Accounts before account signup is enabled.
 
 ## 7. Production readiness checklist
 
 Before using real records:
 
-- Deploy the Go API as an authenticated service behind HTTPS; use tenant isolation, RBAC, audit events, request validation, abuse/rate controls and secure secrets management.
-- Replace in-memory storage with a backed-up relational store; define migrations, retention/deletion, exports, restore testing and incident response.
-- Add a real authentication and business/workspace boundary. Enforce permissions server-side, not just by hiding navigation.
+- Add business memberships, staff roles, audit events, abuse/rate controls and secure secrets management to the authenticated API.
+- Replace the local SQLite demo store with a backed-up tenant-scoped relational store; define schema migrations, retention/deletion, exports, restore testing and incident response.
+- Complete business/workspace authorization and enforce staff permissions server-side.
 - Review the PDPA 2022 and PDPC guidance with local counsel/privacy staff. Document purposes, lawful bases, customer notices, data-subject requests, processors, cross-border flows, retention/deletion and breach response.
 - Confirm each business's current TRA obligations. Integrate only an approved fiscal device/provider where applicable; never represent a non-fiscal app receipt as an EFD/VFD receipt.
 - Confirm each payment via an authoritative provider callback/reconciliation reference. Do not store wallet PINs, OTPs or card credentials. Record currency, amount, provider, transaction ID, status, timestamps and reversal/refund events.

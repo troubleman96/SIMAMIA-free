@@ -1,0 +1,17 @@
+# Use the VPS's existing host Nginx for TLS and hostname routing.
+# All services bind to loopback and are not exposed directly to the Internet.
+services:
+  landing:
+    ports:
+      - "127.0.0.1:4173:80"
+
+  app:
+    ports:
+      - "127.0.0.1:4174:80"
+
+  api:
+    ports:
+      - "127.0.0.1:4175:8080"
+
+  caddy:
+    profiles: ["standalone"]

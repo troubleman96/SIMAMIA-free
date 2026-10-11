@@ -1,5 +1,5 @@
-import HudumaDesk from './hudumadesk';
+import Simamia from './simamia';
 
 export default function HomePage() {
-  return <HudumaDesk />;
+  return <Simamia />;
 }

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 260" role="img" aria-label="Simamia">
+  <rect width="900" height="260" fill="#fff"/>
+  <text x="450" y="184" text-anchor="middle" fill="#0F766E"
+        font-family="'Bricolage Grotesque', 'Arial Rounded MT Bold', 'Arial Black', sans-serif"
+        font-size="160" font-weight="900" letter-spacing="-4">Simamia</text>
+  <!-- Check integrated into the open counter of the final a. -->
+  <path d="m724 145 13 12 25-29" fill="none" stroke="#fff" stroke-width="10"
+        stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
