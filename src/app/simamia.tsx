@@ -61,6 +61,7 @@ import {
   TableRow
 } from '@/components/ui/table';
 import { toast } from 'sonner';
+import { loggedFetch } from '@/lib/observability';
 
 type Lang = 'sw' | 'en';
 type Status = string;
@@ -156,10 +157,14 @@ function readWorkspaceCache(kind: 'prefs' | 'demo', accountKey: string): string 
 
 async function fetchApiRecords<T>(resource: string, accessToken: string | null): Promise<T[]> {
   if (!accessToken) throw new Error('Sign in to load workspace data');
-  const response = await fetch(`${API_BASE_URL}/${resource}`, {
-    cache: 'no-store',
-    headers: { Authorization: `Bearer ${accessToken}` }
-  });
+  const response = await loggedFetch(
+    `${API_BASE_URL}/${resource}`,
+    {
+      cache: 'no-store',
+      headers: { Authorization: `Bearer ${accessToken}` }
+    },
+    { area: 'workspace', operation: 'list', method: 'GET', resource }
+  );
   const payload = (await response.json()) as { data?: T[]; error?: { message?: string } };
   if (!response.ok || !Array.isArray(payload.data)) {
     throw new Error(payload.error?.message || `Unable to load ${resource}`);
@@ -173,11 +178,15 @@ async function createApiRecord<T>(
   accessToken: string | null
 ): Promise<T> {
   if (!accessToken) throw new Error('Sign in to save workspace data');
-  const response = await fetch(`${API_BASE_URL}/${resource}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-    body: JSON.stringify(values)
-  });
+  const response = await loggedFetch(
+    `${API_BASE_URL}/${resource}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify(values)
+    },
+    { area: 'workspace', operation: 'create', method: 'POST', resource }
+  );
   const payload = (await response.json()) as { data?: T; error?: { message?: string } };
   if (!response.ok || !payload.data) {
     throw new Error(payload.error?.message || `Unable to create ${resource}`);
@@ -192,11 +201,15 @@ async function updateApiRecord<T>(
   accessToken: string | null
 ): Promise<T> {
   if (!accessToken) throw new Error('Sign in to update workspace data');
-  const response = await fetch(`${API_BASE_URL}/${resource}/${encodeURIComponent(id)}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-    body: JSON.stringify(values)
-  });
+  const response = await loggedFetch(
+    `${API_BASE_URL}/${resource}/${encodeURIComponent(id)}`,
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify(values)
+    },
+    { area: 'workspace', operation: 'update', method: 'PATCH', resource }
+  );
   const payload = (await response.json()) as { data?: T; error?: { message?: string } };
   if (!response.ok || !payload.data) {
     throw new Error(payload.error?.message || `Unable to update ${resource}`);
@@ -3903,7 +3916,16 @@ function ApiPage({ lang }: { lang: Lang }) {
   const [apiStatus, setApiStatus] = useState<'checking' | 'online' | 'offline'>('checking');
   useEffect(() => {
     let active = true;
-    fetch(`${apiBaseUrl}/health`, { cache: 'no-store' })
+    loggedFetch(
+      `${apiBaseUrl}/health`,
+      { cache: 'no-store' },
+      {
+        area: 'workspace',
+        operation: 'health_check',
+        method: 'GET',
+        resource: 'health'
+      }
+    )
       .then((response) => {
         if (!response.ok) throw new Error('API health check failed');
         return response.json();

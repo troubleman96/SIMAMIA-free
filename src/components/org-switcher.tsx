@@ -22,6 +22,7 @@ import {
   useSidebar
 } from '@/components/ui/sidebar';
 import { useEffect } from 'react';
+import { logClientError } from '@/lib/observability';
 
 export function OrgSwitcher() {
   const { isMobile, state } = useSidebar();
@@ -54,8 +55,11 @@ export function OrgSwitcher() {
     }
     try {
       await setActive({ organization: organizationId });
-    } catch (error) {
-      console.error('Failed to switch organization:', error);
+    } catch {
+      logClientError('organization.switch_failed', {
+        area: 'workspace',
+        operation: 'organization_switch'
+      });
     }
   };
 

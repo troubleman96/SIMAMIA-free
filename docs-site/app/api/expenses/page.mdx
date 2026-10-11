@@ -1,0 +1,55 @@
+---
+title: Expenses
+description: Record operating expenses and filter account expense records.
+---
+
+# Expenses
+
+Expenses track outflows recorded by a business. The endpoint does not calculate profit, enforce accounting categories, or reconcile bank/mobile-money transactions.
+
+## Routes
+
+`GET /expenses`, `POST /expenses`, `GET /expenses/{id}`, `PATCH /expenses/{id}`, `DELETE /expenses/{id}`.
+
+## Create an expense
+
+Required: a non-empty `description`, `category`, and `date`, plus a positive `amount`.
+
+```bash
+curl -X POST "$SIMAMIA_API/expenses" \
+  -H "Authorization: Bearer $SIMAMIA_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"description":"Laundry detergent","category":"Supplies","amount":85000,"date":"2026-10-11","method":"Cash","notes":"Two cartons"}'
+```
+
+| Field | Requirement | Example |
+| --- | --- | --- |
+| `description` | Non-empty | `Laundry detergent` |
+| `category` | Non-empty | `Supplies` |
+| `amount` | Numeric and greater than zero | `85000` |
+| `date` | Non-empty string | `2026-10-11` |
+| `method`, `notes` | Optional flexible fields | `Cash`, `Two cartons` |
+
+The API checks that `date` is not empty but does not parse or normalize its format. Use ISO date format (`YYYY-MM-DD`) consistently in your integration.
+
+## List and filter
+
+```bash
+curl --get "$SIMAMIA_API/expenses" \
+  -H "Authorization: Bearer $SIMAMIA_TOKEN" \
+  --data-urlencode 'q=supplies' --data-urlencode 'page=1' --data-urlencode 'page_size=20'
+```
+
+The generic `status` filter only matches a `status` property if present. There is no date-range or category-specific query parameter; use `q` or filter the returned page client-side.
+
+## Update and delete
+
+```bash
+curl -X PATCH "$SIMAMIA_API/expenses/EXP-0001" \
+  -H "Authorization: Bearer $SIMAMIA_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"amount":82000,"notes":"Supplier discount applied"}'
+
+curl -X DELETE "$SIMAMIA_API/expenses/EXP-0001" \
+  -H "Authorization: Bearer $SIMAMIA_TOKEN"
+```

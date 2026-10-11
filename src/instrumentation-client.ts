@@ -2,16 +2,17 @@
 // The added config here will be used whenever a users loads a page in their browser.
 // https://docs.sentry.io/platforms/javascript/guides/nextjs/
 import * as Sentry from '@sentry/nextjs';
+import { scrubSentryEvent } from '@/lib/sentry-scrub';
 
-if (!process.env.NEXT_PUBLIC_SENTRY_DISABLED) {
+if (process.env.NEXT_PUBLIC_SENTRY_DISABLED !== 'true') {
   Sentry.init({
     dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
 
-    // Adds request headers and IP for users, for more info visit
-    sendDefaultPii: true,
+    sendDefaultPii: false,
+    beforeSend: scrubSentryEvent,
 
     // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
-    tracesSampleRate: 1,
+    tracesSampleRate: 0.1,
 
     // Setting this option to true will print useful information to the console while you're setting up Sentry.
     debug: false

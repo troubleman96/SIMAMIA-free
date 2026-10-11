@@ -13,5 +13,13 @@ services:
     ports:
       - "127.0.0.1:4175:8080"
 
+  admin:
+    ports:
+      - "127.0.0.1:4176:3000"
+
+  docs:
+    ports:
+      - "127.0.0.1:4177:3000"
+
   caddy:
     profiles: ["standalone"]

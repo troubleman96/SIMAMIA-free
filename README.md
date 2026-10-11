@@ -10,6 +10,8 @@ Simamia is a Swahili-first business operations platform for small service and re
 | `src/features/onboarding/business-templates.ts` | Eight workflow templates and their labels, statuses, intake fields, and sample services |
 | `landing/` | Public `simamia.online` website (plain HTML, CSS, and JavaScript) |
 | `api/` | Go HTTP API, SQLite persistence, and OpenAPI contract |
+| `admin/` | Private Next.js operator console for tenant data, usage, and audit history (`admin.simamia.online`) |
+| `docs-site/` | Next.js API documentation site (`docs.simamia.online`) |
 | `deploy/` | Caddy and host-Nginx configuration for production routing |
 | `compose.yaml` | Local/standalone deployment for landing, app, API, and Caddy |
 | `docs/` | Product notes, API examples, integration research, and deployment procedures |
@@ -38,6 +40,7 @@ Templates currently tailor labels, statuses, intake fields, and example services
 - Payment records are operational ledger entries derived from work records. Simamia does not process a mobile-money transaction or issue a TRA fiscal receipt.
 - SMS, email, AI, and payment-provider connections are not fully implemented. Read [`docs/integrations.md`](docs/integrations.md) for current status and provider notes.
 - SQLite is intended for a single API instance. Production still needs tested backups, shared-business roles, and operational monitoring before scaling out.
+- The private `admin.simamia.online` console administers Simamia records and tenants inferred from record ownership. It does not administer Camel Accounts credentials or identities; see [`docs/admin-console.md`](docs/admin-console.md).
 
 ## Requirements
 
@@ -46,6 +49,18 @@ Templates currently tailor labels, statuses, intake fields, and example services
 - Docker Engine and the Compose plugin for the production-like stack
 
 ## Local development
+
+The admin console and API docs are standalone Next.js apps in this monorepo. Run their development servers from their own directories:
+
+```bash
+# In one terminal:
+cd admin && bun install && bun run dev
+
+# In a second terminal:
+cd docs-site && bun install && bun run dev
+```
+
+Docker Compose builds the admin console and docs site from their directories in this repository.
 
 Install the root dependencies (the landing page is a Bun workspace):
 
@@ -80,6 +95,19 @@ cd landing
 bun run dev
 ```
 
+**4. Admin console** — configure a local operator password and matching API key for the API and admin server, then open `http://localhost:3001` from the admin workspace:
+
+```bash
+SIMAMIA_API_URL=http://localhost:8080/api/v1 \
+SIMAMIA_ADMIN_API_TOKEN=local-development-token-at-least-32-chars \
+SIMAMIA_ADMIN_PASSWORD='local-private-password' \
+SIMAMIA_ADMIN_SESSION_SECRET='another-local-secret-at-least-32-chars' \
+ADMIN_APP_ORIGIN=http://localhost:3001 \
+bun --cwd admin run dev
+```
+
+Start the API with `SIMAMIA_ADMIN_TOKEN` set to the same value as `SIMAMIA_ADMIN_API_TOKEN`. Keep local values separate from production secrets.
+
 Or run the services together in containers:
 
 ```bash
@@ -109,9 +137,11 @@ The Next.js app is configured for static export and writes the deployable site t
 ## API and deployment references
 
 - API contract: [`api/openapi.yaml`](api/openapi.yaml)
+- Interactive Swagger reference and detailed API guides: [`docs-site/`](docs-site) source, including the OpenAPI contract mirror
 - API setup and configuration: [`api/README.md`](api/README.md)
 - Local API examples: [`docs/demo-testing.md`](docs/demo-testing.md)
 - Production deployment, DNS, TLS, and backups: [`docs/deployment.md`](docs/deployment.md)
+- Logging and error reporting: [`docs/logging.md`](docs/logging.md)
 - Product/operations guide: [`docs/management-guide.md`](docs/management-guide.md)
 - Integration status: [`docs/integrations.md`](docs/integrations.md)
 - Vertical market and onboarding plan: [`docs/vertical-market-and-onboarding-plan.md`](docs/vertical-market-and-onboarding-plan.md)

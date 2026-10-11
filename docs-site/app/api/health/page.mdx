@@ -1,0 +1,42 @@
+---
+title: Health check
+description: Verify that the API process is responding.
+---
+
+# Health check
+
+## `GET /health`
+
+Returns process-level health information. This is the only public endpoint and requires no bearer token.
+
+```bash
+curl --include https://api.simamia.online/api/v1/health
+```
+
+Local:
+
+```bash
+curl --include http://localhost:8080/api/v1/health
+```
+
+Example:
+
+```json
+{
+  "data": {
+    "status": "ok",
+    "service": "simamia-api",
+    "version": "v1",
+    "time_zone": "Africa/Dar_es_Salaam",
+    "currency": "TZS"
+  },
+  "meta": {
+    "request_id": "req_c013...",
+    "timestamp": "2026-10-11T08:00:00Z"
+  }
+}
+```
+
+`200` confirms that the HTTP process handled this request. This endpoint does not test authenticated access, database write ability, or Camel Accounts availability.
+
+`GET` is the only supported method. Other methods return `405 METHOD_NOT_ALLOWED` and an `Allow: GET` header.

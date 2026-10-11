@@ -1,0 +1,47 @@
+---
+title: Current limits and safety
+description: Know the MVP API constraints before relying on it for financial or multi-user workflows.
+---
+
+# Current limits and safety
+
+These docs describe the implementation in the current Simamia repository. They are not a promise of unimplemented features.
+
+## Persistence and tenancy
+
+- SQLite is a single-server database; use one API process per database file.
+- Records are scoped by Camel Accounts subject. Shared business membership, invitations, staff accounts, roles, and permissions are not implemented.
+- Record properties are flexible JSON in one table. Cross-resource references are display strings, not foreign keys.
+- At startup, every record is loaded into memory. Lists, ownership checks, item lookup, and search scan those in-memory slices; there is no database-backed pagination or search index. Keep the deployment to one API process and a modest dataset.
+- There is no audit log, soft-delete, record versioning, or idempotency key.
+- `GET /health` does not verify database write readiness or Camel Accounts connectivity.
+
+## Payments and documents
+
+- `GET /payments` is derived from each order's `amount` and `paid` values.
+- The API does not initiate or verify mobile-money payments or reconcile provider callbacks.
+- It does not provide an immutable ledger, invoices, fiscal receipts, TRA integration, or accounting exports.
+- The API does not currently reject `paid > amount`; this can produce a negative due balance.
+- The payment view produces one derived row per order; it does not preserve individual payment attempts, partial-payment history, refunds, or provider transaction references. An order's `method` may be absent or null.
+
+## Workflow and vertical-specific behavior
+
+The UI provides eight business templates: general services, salon/barber, garage, phone/electronics repair, laundry/shoe care, butcher, mobile money agent, and tailoring. The backend still accepts generic JSON. It does not enforce template-specific fields, states, inventory, agent float, commission, warranty, measurement privacy, or state transition rules.
+
+## External integrations
+
+SMS, email, AI, WhatsApp, and payment provider actions are not connected to live providers in the current API. Do not represent an unimplemented integration as sent, delivered, paid, or verified.
+
+## Request operations
+
+- The handler does not write a per-request access log and has no built-in rate limit. Include request IDs in client-side logs, and apply rate limiting at a trusted proxy if needed.
+- `GET /payments` currently ignores query filters and returns all derived rows for the account. Collection endpoints support only `q`, `status`, `page`, and `page_size`; there is no date-range, sort, or category filter.
+- Reads are served from in-memory slices loaded at startup. Each successful write is committed to SQLite before the in-memory slice changes; restart reloads persisted records. Running multiple API instances against one database file is unsupported.
+
+## Data migration and backup
+
+There is no versioned application migration framework for individual record shapes. Back up SQLite before deployment updates and validate restoring it to a clean host. Keep secrets outside the repository and restrict database/backup file access.
+
+## Production readiness work
+
+Before using the API for a larger multi-user business or financial reconciliation, plan to add business membership/roles, normalized customer/service IDs, audit history, idempotency support, provider webhook verification, explicit money invariants, automated migrations, and tested backups/restore procedures.

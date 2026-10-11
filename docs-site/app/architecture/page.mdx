@@ -1,0 +1,91 @@
+---
+title: Architecture
+description: How Simamia authentication, app onboarding, API requests, and storage fit together.
+---
+
+# Architecture
+
+## Production services
+
+The production stack has three product services and a reverse proxy. The landing site and app are static web assets in Nginx containers. The Go API is a separate service and persists data in a named SQLite volume. Caddy terminates TLS in the standalone deployment; the existing VPS deployment uses host Nginx and loopback ports instead.
+
+```mermaid
+flowchart TB
+  Visitor[Business owner or visitor]
+  DNS[DNS: simamia.online, app, api]
+  Proxy[Reverse proxy: Caddy or host Nginx]
+  Landing[Landing website: static HTML/CSS/JS]
+  App[Simamia app: Next.js static export]
+  API[Go API: /api/v1]
+  Accounts[Camel Accounts: OAuth and userinfo]
+  DB[(SQLite persistent volume)]
+  Visitor --> DNS --> Proxy
+  Proxy -->|simamia.online| Landing
+  Proxy -->|app.simamia.online| App
+  Proxy -->|api.simamia.online| API
+  App -->|OAuth sign-in| Accounts
+  App -->|Bearer token + JSON| API
+  API -->|token introspection: /oauth/userinfo| Accounts
+  API -->|scoped records| DB
+```
+
+## Sign-in and first-use setup
+
+The app uses a public Camel Accounts OAuth client. Phone/password and Google sign-in happen at Camel Accounts. The app receives the authorization result through its callback, then shows Simamia onboarding if the account has no business profile. Onboarding is two steps: choose one of eight business templates, then enter the business name and Tanzania phone number.
+
+```mermaid
+sequenceDiagram
+  actor Owner
+  participant App as app.simamia.online
+  participant Accounts as Camel Accounts
+  participant API as api.simamia.online
+  participant DB as SQLite
+  Owner->>App: Open app and choose sign-in method
+  App->>Accounts: OAuth authorization request (PKCE)
+  Accounts-->>App: Redirect with authorization result
+  App->>API: GET /businesses with access token
+  API->>Accounts: GET /oauth/userinfo with bearer token
+  Accounts-->>API: Authenticated account subject
+  API->>DB: Select rows owned by subject
+  DB-->>API: Business profiles
+  API-->>App: Existing profile or empty collection
+  Owner->>App: Choose template and complete business details
+  App->>API: POST /businesses
+  API->>Accounts: Validate token and resolve subject
+  API->>DB: Store profile with owner_sub
+  API-->>App: Created profile and generated id
+```
+
+## API request handling
+
+The Go handler sets CORS and security headers, assigns a request ID, answers `/health` without auth, then authenticates every other endpoint. It resolves the token's account subject using Camel Accounts userinfo and filters each data collection by that subject. SQLite writes use one connection and WAL mode.
+
+```mermaid
+flowchart TD
+  Req[HTTP request] --> CORS[Set CORS and response headers]
+  CORS --> RID[Use or generate X-Request-ID]
+  RID --> Health{GET /api/v1/health?}
+  Health -->|yes| Public[Return public health envelope]
+  Health -->|no| Auth[Call Camel Accounts /oauth/userinfo]
+  Auth -->|invalid token| E401[401 UNAUTHORIZED]
+  Auth -->|Accounts unavailable| E503[503 AUTH_UNAVAILABLE]
+  Auth -->|valid subject| Route[Route to supported collection]
+  Route --> Read[Read/list: filter owner_sub]
+  Route --> Write[Create/update/delete: validate and persist]
+  Read --> Envelope[JSON data + meta]
+  Write --> Envelope
+```
+
+## Tenant boundary today
+
+The storage boundary is the Camel Accounts subject (`owner_sub`). Every stored record belongs to the account that created it; another subject cannot fetch, edit, delete, or list that record. The current model does not yet implement business-level membership: a shared shop with multiple staff accounts needs membership and role support before those accounts can safely share one business workspace.
+
+## Important implementation constraints
+
+- SQLite is single-server storage and API connections are limited to one open connection. Do not run multiple API replicas against the same database file.
+- On a newly initialized empty database, example rows are seeded under `local-preview`; authenticated account requests are scoped to their own subject and will not see those rows.
+- Orders refer to customers and services by display name strings, not enforced foreign keys.
+- Payment ledger rows are calculated from `orders.amount` and `orders.paid` on each request. The ledger is not an independently writable table.
+- Template selection lives in the business profile. The API does not enforce template-specific field schemas or state transitions yet.
+
+See [data model](/concepts/data-model), [authentication](/concepts/authentication), and [production limits](/operations/limits) for details.

@@ -1,0 +1,51 @@
+---
+title: Businesses
+description: Create and manage the Simamia business profile linked to an account.
+---
+
+# Businesses
+
+The app stores each onboarding profile in `businesses`. A profile captures the public/business contact identity and the selected workflow template. The API does not enforce uniqueness: an account can create multiple profiles.
+
+## Routes
+
+`GET /businesses`, `POST /businesses`, `GET /businesses/{id}`, `PATCH /businesses/{id}`, `DELETE /businesses/{id}`. All require bearer authentication.
+
+## Create a profile
+
+The current API has no business-specific required fields beyond the top-level JSON object requirement. For a useful Simamia profile, send:
+
+| Field | Type | Suggested | Meaning |
+| --- | --- | --- | --- |
+| `businessName` | string | Required by the app | Business display name |
+| `phone` | string | E.164-like Tanzania number | Business contact number |
+| `primaryTemplate` | string | One of the template IDs below | Default workflow configuration |
+| `templateVersion` | integer | `1` | Version of the selected template |
+| `createdAt` | string | ISO 8601 timestamp | App-recorded creation time |
+
+Template IDs: `general`, `salon`, `garage`, `phone_repair`, `laundry`, `butcher`, `mobile_money`, and `tailor`.
+
+```bash
+curl -X POST "$SIMAMIA_API/businesses" \
+  -H "Authorization: Bearer $SIMAMIA_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"businessName":"Amani Laundry","phone":"+255712345678","primaryTemplate":"laundry","templateVersion":1,"createdAt":"2026-10-11T11:00:00+03:00"}'
+```
+
+The response includes generated `id`, `owner_sub`, and the `ownerSub` compatibility property written by the app. Treat ownership properties as server managed.
+
+## Read, update, delete
+
+```bash
+curl "$SIMAMIA_API/businesses/BIZ-0001" -H "Authorization: Bearer $SIMAMIA_TOKEN"
+
+curl -X PATCH "$SIMAMIA_API/businesses/BIZ-0001" \
+  -H "Authorization: Bearer $SIMAMIA_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"businessName":"Amani Laundry & Shoe Care"}'
+
+curl -X DELETE "$SIMAMIA_API/businesses/BIZ-0001" \
+  -H "Authorization: Bearer $SIMAMIA_TOKEN"
+```
+
+Deleting a profile does not delete its orders, customers, services, team, or expenses. There is no business-level cascade or foreign-key relationship in the current schema.

@@ -5,6 +5,7 @@ import { CamelAuthProvider, useCamelAuth } from 'camel-accounts';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Icons } from '@/components/icons';
+import { logClientAuditEvent, logClientEvent } from '@/lib/observability';
 
 const issuer = process.env.NEXT_PUBLIC_CAMEL_ACCOUNTS_URL || 'https://accounts.camelcreatives.com';
 const clientId = process.env.NEXT_PUBLIC_CAMEL_ACCOUNTS_CLIENT_ID || 'simamia-35sj96';
@@ -81,9 +82,17 @@ export function CamelAuthRoot({ children }: { children: React.ReactNode }) {
               scope: result.scope ?? latest.scope ?? ''
             })
           );
+          logClientEvent('info', 'auth.token_refresh_succeeded', {
+            area: 'auth',
+            operation: 'token_refresh'
+          });
           setProviderKey((key) => key + 1);
         } catch {
           if (!active) return;
+          logClientEvent('warn', 'auth.token_refresh_failed', {
+            area: 'auth',
+            operation: 'token_refresh'
+          });
           localStorage.removeItem('camel_auth_tokens');
           setProviderKey((key) => key + 1);
         }
@@ -189,6 +198,10 @@ export function CamelAuthScreen({ lang = 'sw' }: { lang?: 'sw' | 'en' }) {
         return { authorize: authorize.toString(), state };
       })
       .catch(() => {
+        logClientEvent('warn', 'auth.authorization_prepare_failed', {
+          area: 'auth',
+          operation: 'prepare_authorization'
+        });
         if (!popup.closed) popup.close();
         setGoogleLoading(false);
         setFormLoading(false);
@@ -209,6 +222,7 @@ export function CamelAuthScreen({ lang = 'sw' }: { lang?: 'sw' | 'en' }) {
       'popup=yes,width=520,height=680'
     );
     if (!popup) {
+      logClientEvent('warn', 'auth.popup_blocked', { area: 'auth', operation: 'open_popup' });
       setGoogleError(
         english
           ? 'Allow pop-ups to continue with Google.'
@@ -234,6 +248,7 @@ export function CamelAuthScreen({ lang = 'sw' }: { lang?: 'sw' | 'en' }) {
   };
 
   const loginWithGoogle = () => {
+    logClientAuditEvent('auth.sign_in_started', { area: 'auth', operation: 'google' });
     const popup = openAuthPopup();
     if (!popup) return;
     setGoogleLoading(true);
@@ -244,11 +259,14 @@ export function CamelAuthScreen({ lang = 'sw' }: { lang?: 'sw' | 'en' }) {
         socialStart.searchParams.set('next', authorize);
         popup.location.href = socialStart.toString();
       })
-      .catch(() => undefined);
+      .catch(() => {
+        logClientEvent('warn', 'auth.redirect_failed', { area: 'auth', operation: 'google' });
+      });
   };
 
   const loginWithPhone = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    logClientAuditEvent('auth.sign_in_started', { area: 'auth', operation: 'phone_password' });
     const popup = openAuthPopup();
     if (!popup) return;
     setFormLoading(true);
@@ -274,10 +292,19 @@ export function CamelAuthScreen({ lang = 'sw' }: { lang?: 'sw' | 'en' }) {
         form.submit();
         setPassword('');
       })
-      .catch(() => undefined);
+      .catch(() => {
+        logClientEvent('warn', 'auth.redirect_failed', {
+          area: 'auth',
+          operation: 'phone_password'
+        });
+      });
   };
 
   const createAccount = () => {
+    logClientAuditEvent('auth.account_creation_started', {
+      area: 'auth',
+      operation: 'register'
+    });
     setGoogleError('');
     const popup = openAuthPopup();
     if (!popup) return;
@@ -289,7 +316,9 @@ export function CamelAuthScreen({ lang = 'sw' }: { lang?: 'sw' | 'en' }) {
         register.searchParams.set('next', new URL(authorize).pathname + new URL(authorize).search);
         popup.location.href = register.toString();
       })
-      .catch(() => undefined);
+      .catch(() => {
+        logClientEvent('warn', 'auth.redirect_failed', { area: 'auth', operation: 'register' });
+      });
   };
 
   return (

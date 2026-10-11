@@ -1,0 +1,2591 @@
+openapi: 3.1.0
+info:
+  title: Simamia Service Management API
+  version: 0.1.0
+  summary: REST API for Simamia service operations
+  description: Contract documented from the Go implementation in api/main.go. Data endpoints require a Camel Accounts
+    bearer access token. Records are scoped to the Camel Accounts subject. SQLite persistence is intended for a
+    single API instance. Payments are a read-only view derived from orders, not provider transactions.
+  contact:
+    name: Simamia API documentation
+    url: https://simamia.online
+servers:
+- url: https://api.simamia.online/api/v1
+  description: Production
+- url: http://localhost:8080/api/v1
+  description: Local Go API
+externalDocs:
+  description: Full narrative guides, workflow diagrams, auth, and current limitations
+  url: https://docs.simamia.online
+security:
+- camelBearer: []
+tags:
+- name: Health
+  description: Unauthenticated process health.
+- name: Businesses
+  description: Profiles selected during Simamia onboarding. The Go API accepts any JSON object for this resource
+    and does not enforce required fields or uniqueness.
+- name: Customers
+  description: Customer contact records. name and phone must be present and non-empty. Phone uniqueness and syntax
+    are not validated.
+- name: Services
+  description: Catalog items. name must be present and non-empty; price must be greater than zero. currency and
+    active default to TZS and true.
+- name: Orders and jobs
+  description: Work units used across business templates. customer, service, and amount are required; amount must
+    be greater than zero. status, paid, and currency default to New, 0, and TZS. Other properties are retained as
+    flexible JSON. Status transitions and paid-versus-amount invariants are not enforced.
+- name: Team
+  description: Directory records only. name and phone are required. These records do not create API identities or
+    grant permissions.
+- name: Expenses
+  description: Expense entries. description, category, date are required and non-empty; amount must be greater than
+    zero. Date is not parsed and categories are not constrained.
+- name: Payments
+  description: Read-only balances derived from account-owned orders.
+- name: CORS and preflight
+  description: Browser preflight requests handled before route authentication. Responses expose X-Request-ID to browser clients.
+- name: Admin
+  description: Private platform administration API. Requests use X-Simamia-Admin-Key and must originate from the admin Next.js server. Camel Accounts identities and credentials are managed separately.
+paths:
+  /admin/overview:
+    get:
+      tags: [Admin]
+      operationId: getAdminOverview
+      summary: Get platform record overview
+      security:
+      - simamiaAdminKey: []
+      responses:
+        '200':
+          description: Tenant count, stored record total, and counts by resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminEnvelope'
+        '401':
+          $ref: '#/components/responses/AdminUnauthorized'
+        '503':
+          $ref: '#/components/responses/AdminDisabled'
+  /admin/accounts:
+    get:
+      tags: [Admin]
+      operationId: listAdminAccounts
+      summary: List Simamia tenants inferred from stored records
+      description: These are owner_sub values associated with Simamia business data, not a canonical Camel Accounts user directory. Supports q, page, and page_size.
+      security:
+      - simamiaAdminKey: []
+      parameters:
+      - $ref: '#/components/parameters/Q'
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Tenant summaries and resource counts.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminListEnvelope'
+        '401':
+          $ref: '#/components/responses/AdminUnauthorized'
+  /admin/accounts/{owner_sub}:
+    get:
+      tags: [Admin]
+      operationId: getAdminAccount
+      summary: Get one Simamia tenant summary
+      security:
+      - simamiaAdminKey: []
+      parameters:
+      - $ref: '#/components/parameters/OwnerSub'
+      responses:
+        '200':
+          description: Tenant profile records and resource counts.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminEnvelope'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /admin/accounts/{owner_sub}/{resource}:
+    get:
+      tags: [Admin]
+      operationId: listAdminAccountRecords
+      summary: List records for a tenant and resource
+      security:
+      - simamiaAdminKey: []
+      parameters:
+      - $ref: '#/components/parameters/OwnerSub'
+      - $ref: '#/components/parameters/AdminResource'
+      - $ref: '#/components/parameters/Q'
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Tenant scoped records and pagination.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminListEnvelope'
+    post:
+      tags: [Admin]
+      operationId: createAdminAccountRecord
+      summary: Create a tenant record
+      description: Assigns id and owner_sub on the server, applies the same validation as the business API, and writes an audit event.
+      security:
+      - simamiaAdminKey: []
+      parameters:
+      - $ref: '#/components/parameters/OwnerSub'
+      - $ref: '#/components/parameters/AdminResource'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminRecordInput'
+      responses:
+        '201':
+          description: Created tenant record.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminEnvelope'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /admin/accounts/{owner_sub}/{resource}/{record_id}:
+    get:
+      tags: [Admin]
+      operationId: getAdminAccountRecord
+      summary: Get a tenant record
+      security:
+      - simamiaAdminKey: []
+      parameters:
+      - $ref: '#/components/parameters/OwnerSub'
+      - $ref: '#/components/parameters/AdminResource'
+      - $ref: '#/components/parameters/RecordId'
+      responses:
+        '200':
+          description: Tenant record.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminEnvelope'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags: [Admin]
+      operationId: updateAdminAccountRecord
+      summary: Update a tenant record
+      description: Merges supplied properties, preserves ownership and id, validates the result, and records changed field names in the audit log.
+      security:
+      - simamiaAdminKey: []
+      parameters:
+      - $ref: '#/components/parameters/OwnerSub'
+      - $ref: '#/components/parameters/AdminResource'
+      - $ref: '#/components/parameters/RecordId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminRecordInput'
+      responses:
+        '200':
+          description: Updated tenant record.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminEnvelope'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+    delete:
+      tags: [Admin]
+      operationId: deleteAdminAccountRecord
+      summary: Delete a tenant record
+      description: Permanently removes one Simamia business record and adds an audit event. Payments are derived and cannot be edited directly.
+      security:
+      - simamiaAdminKey: []
+      parameters:
+      - $ref: '#/components/parameters/OwnerSub'
+      - $ref: '#/components/parameters/AdminResource'
+      - $ref: '#/components/parameters/RecordId'
+      responses:
+        '200':
+          description: Deletion confirmation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminEnvelope'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /admin/usage:
+    get:
+      tags: [Admin]
+      operationId: getAdminUsage
+      summary: Get SQLite usage indicators
+      description: Counts records and serialized payload bytes by resource, recent creations, latest updates, and audit event count. Payload bytes exclude indexes, WAL, and backups.
+      security:
+      - simamiaAdminKey: []
+      responses:
+        '200':
+          description: Usage metrics by resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminEnvelope'
+  /admin/health:
+    get:
+      tags: [Admin]
+      operationId: getAdminHealth
+      summary: Check API and database health
+      description: Verifies API database connectivity and reports configured identity/admin services. It does not probe Camel Accounts or replace container monitoring.
+      security:
+      - simamiaAdminKey: []
+      responses:
+        '200':
+          description: Current process, SQLite, and configuration status.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminEnvelope'
+  /admin/audit:
+    get:
+      tags: [Admin]
+      operationId: listAdminAudit
+      summary: List administrator changes
+      description: Newest first. Stores actor, action, resource, record and tenant IDs, timestamp, and changed field names. Business record values are excluded.
+      security:
+      - simamiaAdminKey: []
+      parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Administrator audit events.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminListEnvelope'
+  /businesses:
+    get:
+      tags:
+      - Businesses
+      operationId: listBusinesses
+      summary: List businesses
+      description: Profiles selected during Simamia onboarding. The Go API accepts any JSON object for this resource
+        and does not enforce required fields or uniqueness. Results are restricted to the authenticated Camel Accounts
+        subject. q/status filtering is performed before pagination. A page beyond the end returns an empty array.
+      parameters:
+      - $ref: '#/components/parameters/Q'
+      - $ref: '#/components/parameters/Status'
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: Collection and pagination metadata.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessListEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '503':
+          $ref: '#/components/responses/AuthUnavailable'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+    post:
+      tags:
+      - Businesses
+      operationId: createBusinessProfile
+      summary: Create business profile
+      description: Profiles selected during Simamia onboarding. The Go API accepts any JSON object for this resource
+        and does not enforce required fields or uniqueness. The API assigns the record ID and owner_sub; caller-supplied
+        ID/ownership values cannot establish ownership. Request properties are open ended and unknown properties
+        are preserved.
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Business'
+            examples:
+              example:
+                summary: Businesses request
+                value:
+                  businessName: Amani Laundry
+                  phone: '+255712345678'
+                  primaryTemplate: laundry
+                  templateVersion: 1
+                  createdAt: '2026-10-11T11:00:00+03:00'
+        description: Request bodies are limited to 1 MiB and must contain exactly one JSON object.
+      responses:
+        '201':
+          description: Record created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessEnvelope'
+              example: &id001
+                data:
+                  id: BIZ-0001
+                  owner_sub: camel-account-subject
+                  businessName: Amani Laundry
+                  phone: '+255712345678'
+                  primaryTemplate: laundry
+                  templateVersion: 1
+                  ownerSub: camel-account-subject
+                meta:
+                  request_id: req_example
+                  timestamp: '2026-10-11T08:00:00Z'
+        '400':
+          $ref: '#/components/responses/InvalidJson'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/StorageError'
+        '503':
+          $ref: '#/components/responses/AuthUnavailable'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+    options:
+      tags:
+      - CORS and preflight
+      operationId: preflightBusinessesCollection
+      summary: Handle browser CORS preflight
+      description: The handler returns 204 before routing or authentication. Allowed methods are GET, POST, PATCH,
+        DELETE, OPTIONS; allowed request headers are Content-Type, Authorization, X-Request-ID.
+      security: []
+      responses:
+        '204':
+          description: Preflight accepted. Access-Control-Allow-Origin depends on CORS_ALLOWED_ORIGINS.
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+            Access-Control-Allow-Methods:
+              schema:
+                type: string
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+  /businesses/{id}:
+    parameters:
+    - $ref: '#/components/parameters/RecordId'
+    - $ref: '#/components/parameters/RequestId'
+    get:
+      tags:
+      - Businesses
+      operationId: getBusinessProfile
+      summary: Get one business profile
+      description: Returns the matching record only when it is owned by the authenticated subject. A record owned
+        by another subject is indistinguishable from a missing record.
+      responses:
+        '200':
+          description: Record found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessEnvelope'
+              example: *id001
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/AuthUnavailable'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+    patch:
+      tags:
+      - Businesses
+      operationId: patchBusinessProfile
+      summary: Partially update business profile
+      description: Performs a shallow merge into the current JSON record and validates the merged result. The API
+        ignores id, owner_sub, and ownerSub from this body. No business-specific field schema or workflow transition
+        is enforced.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchBusiness'
+            examples:
+              partial:
+                value:
+                  templateVersion: 1
+                  createdAt: '2026-10-11T11:00:00+03:00'
+        description: Request bodies are limited to 1 MiB and must contain exactly one JSON object.
+      responses:
+        '200':
+          description: Updated record.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessEnvelope'
+              example: *id001
+        '400':
+          $ref: '#/components/responses/InvalidJson'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/StorageError'
+        '503':
+          $ref: '#/components/responses/AuthUnavailable'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+    delete:
+      tags:
+      - Businesses
+      operationId: deleteBusinessProfile
+      summary: Permanently delete business profile
+      description: Permanently removes the row. There is no archive, soft-delete, cascade, or restore operation.
+      responses:
+        '200':
+          description: Deletion result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteEnvelope'
+              example:
+                data:
+                  id: BIZ-0001
+                  deleted: true
+                meta:
+                  request_id: req_example
+                  timestamp: '2026-10-11T08:00:00Z'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/StorageError'
+        '503':
+          $ref: '#/components/responses/AuthUnavailable'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+    options:
+      tags:
+      - CORS and preflight
+      operationId: preflightBusinessesItem
+      summary: Handle browser CORS preflight
+      description: The handler returns 204 before routing or authentication. Allowed methods are GET, POST, PATCH,
+        DELETE, OPTIONS; allowed request headers are Content-Type, Authorization, X-Request-ID.
+      security: []
+      responses:
+        '204':
+          description: Preflight accepted. Access-Control-Allow-Origin depends on CORS_ALLOWED_ORIGINS.
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+            Access-Control-Allow-Methods:
+              schema:
+                type: string
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+  /customers:
+    get:
+      tags:
+      - Customers
+      operationId: listCustomers
+      summary: List customers
+      description: Customer contact records. name and phone must be present and non-empty. Phone uniqueness and
+        syntax are not validated. Results are restricted to the authenticated Camel Accounts subject. q/status filtering
+        is performed before pagination. A page beyond the end returns an empty array.
+      parameters:
+      - $ref: '#/components/parameters/Q'
+      - $ref: '#/components/parameters/Status'
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: Collection and pagination metadata.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerListEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '503':
+          $ref: '#/components/responses/AuthUnavailable'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+    post:
+      tags:
+      - Customers
+      operationId: createCustomer
+      summary: Create customer
+      description: Customer contact records. name and phone must be present and non-empty. Phone uniqueness and
+        syntax are not validated. The API assigns the record ID and owner_sub; caller-supplied ID/ownership values
+        cannot establish ownership. Request properties are open ended and unknown properties are preserved.
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Customer'
+            examples:
+              example:
+                summary: Customers request
+                value:
+                  name: Asha Mushi
+                  phone: +255 712 345 678
+                  email: asha@example.test
+                  location: Kinondoni, Dar es Salaam
+        description: Request bodies are limited to 1 MiB and must contain exactly one JSON object.
+      responses:
+        '201':
+          description: Record created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerEnvelope'
+              example: &id002
+                data:
+                  id: CUS-0001
+                  owner_sub: camel-account-subject
+                  name: Asha Mushi
+                  phone: +255 712 345 678
+                  email: asha@example.test
+                  location: Kinondoni
+                meta:
+                  request_id: req_example
+                  timestamp: '2026-10-11T08:00:00Z'
+        '400':
+          $ref: '#/components/responses/InvalidJson'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/StorageError'
+        '503':
+          $ref: '#/components/responses/AuthUnavailable'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+    options:
+      tags:
+      - CORS and preflight
+      operationId: preflightCustomersCollection
+      summary: Handle browser CORS preflight
+      description: The handler returns 204 before routing or authentication. Allowed methods are GET, POST, PATCH,
+        DELETE, OPTIONS; allowed request headers are Content-Type, Authorization, X-Request-ID.
+      security: []
+      responses:
+        '204':
+          description: Preflight accepted. Access-Control-Allow-Origin depends on CORS_ALLOWED_ORIGINS.
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+            Access-Control-Allow-Methods:
+              schema:
+                type: string
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+  /customers/{id}:
+    parameters:
+    - $ref: '#/components/parameters/RecordId'
+    - $ref: '#/components/parameters/RequestId'
+    get:
+      tags:
+      - Customers
+      operationId: getCustomer
+      summary: Get one customer
+      description: Returns the matching record only when it is owned by the authenticated subject. A record owned
+        by another subject is indistinguishable from a missing record.
+      responses:
+        '200':
+          description: Record found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerEnvelope'
+              example: *id002
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/AuthUnavailable'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+    patch:
+      tags:
+      - Customers
+      operationId: patchCustomer
+      summary: Partially update customer
+      description: Performs a shallow merge into the current JSON record and validates the merged result. The API
+        ignores id, owner_sub, and ownerSub from this body. No business-specific field schema or workflow transition
+        is enforced.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchCustomer'
+            examples:
+              partial:
+                value:
+                  email: asha@example.test
+                  location: Kinondoni, Dar es Salaam
+        description: Request bodies are limited to 1 MiB and must contain exactly one JSON object.
+      responses:
+        '200':
+          description: Updated record.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerEnvelope'
+              example: *id002
+        '400':
+          $ref: '#/components/responses/InvalidJson'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/StorageError'
+        '503':
+          $ref: '#/components/responses/AuthUnavailable'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+    delete:
+      tags:
+      - Customers
+      operationId: deleteCustomer
+      summary: Permanently delete customer
+      description: Permanently removes the row. There is no archive, soft-delete, cascade, or restore operation.
+      responses:
+        '200':
+          description: Deletion result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteEnvelope'
+              example:
+                data:
+                  id: CUS-0001
+                  deleted: true
+                meta:
+                  request_id: req_example
+                  timestamp: '2026-10-11T08:00:00Z'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/StorageError'
+        '503':
+          $ref: '#/components/responses/AuthUnavailable'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+    options:
+      tags:
+      - CORS and preflight
+      operationId: preflightCustomersItem
+      summary: Handle browser CORS preflight
+      description: The handler returns 204 before routing or authentication. Allowed methods are GET, POST, PATCH,
+        DELETE, OPTIONS; allowed request headers are Content-Type, Authorization, X-Request-ID.
+      security: []
+      responses:
+        '204':
+          description: Preflight accepted. Access-Control-Allow-Origin depends on CORS_ALLOWED_ORIGINS.
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+            Access-Control-Allow-Methods:
+              schema:
+                type: string
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+  /services:
+    get:
+      tags:
+      - Services
+      operationId: listServices
+      summary: List services
+      description: Catalog items. name must be present and non-empty; price must be greater than zero. currency
+        and active default to TZS and true. Results are restricted to the authenticated Camel Accounts subject.
+        q/status filtering is performed before pagination. A page beyond the end returns an empty array.
+      parameters:
+      - $ref: '#/components/parameters/Q'
+      - $ref: '#/components/parameters/Status'
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: Collection and pagination metadata.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceListEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '503':
+          $ref: '#/components/responses/AuthUnavailable'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+    post:
+      tags:
+      - Services
+      operationId: createService
+      summary: Create service
+      description: Catalog items. name must be present and non-empty; price must be greater than zero. currency
+        and active default to TZS and true. The API assigns the record ID and owner_sub; caller-supplied ID/ownership
+        values cannot establish ownership. Request properties are open ended and unknown properties are preserved.
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Service'
+            examples:
+              example:
+                summary: Services request
+                value:
+                  name: Wash and fold
+                  category: Laundry
+                  duration: 24 hours
+                  price: 25000
+        description: Request bodies are limited to 1 MiB and must contain exactly one JSON object.
+      responses:
+        '201':
+          description: Record created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceEnvelope'
+              example: &id003
+                data:
+                  id: SRV-0001
+                  owner_sub: camel-account-subject
+                  name: Wash and fold
+                  category: Laundry
+                  duration: 24 hours
+                  price: 25000
+                  currency: TZS
+                  active: true
+                meta:
+                  request_id: req_example
+                  timestamp: '2026-10-11T08:00:00Z'
+        '400':
+          $ref: '#/components/responses/InvalidJson'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/StorageError'
+        '503':
+          $ref: '#/components/responses/AuthUnavailable'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+    options:
+      tags:
+      - CORS and preflight
+      operationId: preflightServicesCollection
+      summary: Handle browser CORS preflight
+      description: The handler returns 204 before routing or authentication. Allowed methods are GET, POST, PATCH,
+        DELETE, OPTIONS; allowed request headers are Content-Type, Authorization, X-Request-ID.
+      security: []
+      responses:
+        '204':
+          description: Preflight accepted. Access-Control-Allow-Origin depends on CORS_ALLOWED_ORIGINS.
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+            Access-Control-Allow-Methods:
+              schema:
+                type: string
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+  /services/{id}:
+    parameters:
+    - $ref: '#/components/parameters/RecordId'
+    - $ref: '#/components/parameters/RequestId'
+    get:
+      tags:
+      - Services
+      operationId: getService
+      summary: Get one service
+      description: Returns the matching record only when it is owned by the authenticated subject. A record owned
+        by another subject is indistinguishable from a missing record.
+      responses:
+        '200':
+          description: Record found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceEnvelope'
+              example: *id003
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/AuthUnavailable'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+    patch:
+      tags:
+      - Services
+      operationId: patchService
+      summary: Partially update service
+      description: Performs a shallow merge into the current JSON record and validates the merged result. The API
+        ignores id, owner_sub, and ownerSub from this body. No business-specific field schema or workflow transition
+        is enforced.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchService'
+            examples:
+              partial:
+                value:
+                  duration: 24 hours
+                  price: 25000
+        description: Request bodies are limited to 1 MiB and must contain exactly one JSON object.
+      responses:
+        '200':
+          description: Updated record.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceEnvelope'
+              example: *id003
+        '400':
+          $ref: '#/components/responses/InvalidJson'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/StorageError'
+        '503':
+          $ref: '#/components/responses/AuthUnavailable'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+    delete:
+      tags:
+      - Services
+      operationId: deleteService
+      summary: Permanently delete service
+      description: Permanently removes the row. There is no archive, soft-delete, cascade, or restore operation.
+      responses:
+        '200':
+          description: Deletion result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteEnvelope'
+              example:
+                data:
+                  id: SRV-0001
+                  deleted: true
+                meta:
+                  request_id: req_example
+                  timestamp: '2026-10-11T08:00:00Z'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/StorageError'
+        '503':
+          $ref: '#/components/responses/AuthUnavailable'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+    options:
+      tags:
+      - CORS and preflight
+      operationId: preflightServicesItem
+      summary: Handle browser CORS preflight
+      description: The handler returns 204 before routing or authentication. Allowed methods are GET, POST, PATCH,
+        DELETE, OPTIONS; allowed request headers are Content-Type, Authorization, X-Request-ID.
+      security: []
+      responses:
+        '204':
+          description: Preflight accepted. Access-Control-Allow-Origin depends on CORS_ALLOWED_ORIGINS.
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+            Access-Control-Allow-Methods:
+              schema:
+                type: string
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+  /orders:
+    get:
+      tags:
+      - Orders and jobs
+      operationId: listOrders
+      summary: List orders
+      description: Work units used across business templates. customer, service, and amount are required; amount
+        must be greater than zero. status, paid, and currency default to New, 0, and TZS. Other properties are retained
+        as flexible JSON. Status transitions and paid-versus-amount invariants are not enforced. Results are restricted
+        to the authenticated Camel Accounts subject. q/status filtering is performed before pagination. A page beyond
+        the end returns an empty array.
+      parameters:
+      - $ref: '#/components/parameters/Q'
+      - $ref: '#/components/parameters/Status'
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: Collection and pagination metadata.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderListEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '503':
+          $ref: '#/components/responses/AuthUnavailable'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+    post:
+      tags:
+      - Orders and jobs
+      operationId: createOrder
+      summary: Create order
+      description: Work units used across business templates. customer, service, and amount are required; amount
+        must be greater than zero. status, paid, and currency default to New, 0, and TZS. Other properties are retained
+        as flexible JSON. Status transitions and paid-versus-amount invariants are not enforced. The API assigns
+        the record ID and owner_sub; caller-supplied ID/ownership values cannot establish ownership. Request properties
+        are open ended and unknown properties are preserved.
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Order'
+            examples:
+              example:
+                summary: Orders and jobs request
+                value:
+                  customer: Asha Mushi
+                  phone: +255 712 345 678
+                  service: Wash and fold
+                  date: '2026-10-12T09:00:00+03:00'
+                  amount: 25000
+                  paid: 0
+                  currency: TZS
+                  status: New
+                  method: Cash
+                  assignee: Owner
+                  templateId: laundry
+                  customFields: &id005
+                    itemTag: BAG-104
+        description: Request bodies are limited to 1 MiB and must contain exactly one JSON object.
+      responses:
+        '201':
+          description: Record created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderEnvelope'
+              example: &id004
+                data:
+                  id: ORD-0001
+                  owner_sub: camel-account-subject
+                  customer: Asha Mushi
+                  service: Wash and fold
+                  amount: 25000
+                  paid: 0
+                  currency: TZS
+                  status: New
+                meta:
+                  request_id: req_example
+                  timestamp: '2026-10-11T08:00:00Z'
+        '400':
+          $ref: '#/components/responses/InvalidJson'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/StorageError'
+        '503':
+          $ref: '#/components/responses/AuthUnavailable'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+    options:
+      tags:
+      - CORS and preflight
+      operationId: preflightOrdersCollection
+      summary: Handle browser CORS preflight
+      description: The handler returns 204 before routing or authentication. Allowed methods are GET, POST, PATCH,
+        DELETE, OPTIONS; allowed request headers are Content-Type, Authorization, X-Request-ID.
+      security: []
+      responses:
+        '204':
+          description: Preflight accepted. Access-Control-Allow-Origin depends on CORS_ALLOWED_ORIGINS.
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+            Access-Control-Allow-Methods:
+              schema:
+                type: string
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+  /orders/{id}:
+    parameters:
+    - $ref: '#/components/parameters/RecordId'
+    - $ref: '#/components/parameters/RequestId'
+    get:
+      tags:
+      - Orders and jobs
+      operationId: getOrder
+      summary: Get one order
+      description: Returns the matching record only when it is owned by the authenticated subject. A record owned
+        by another subject is indistinguishable from a missing record.
+      responses:
+        '200':
+          description: Record found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderEnvelope'
+              example: *id004
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/AuthUnavailable'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+    patch:
+      tags:
+      - Orders and jobs
+      operationId: patchOrder
+      summary: Partially update order
+      description: Performs a shallow merge into the current JSON record and validates the merged result. The API
+        ignores id, owner_sub, and ownerSub from this body. No business-specific field schema or workflow transition
+        is enforced.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchOrder'
+            examples:
+              partial:
+                value:
+                  templateId: laundry
+                  customFields: *id005
+        description: Request bodies are limited to 1 MiB and must contain exactly one JSON object.
+      responses:
+        '200':
+          description: Updated record.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderEnvelope'
+              example: *id004
+        '400':
+          $ref: '#/components/responses/InvalidJson'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/StorageError'
+        '503':
+          $ref: '#/components/responses/AuthUnavailable'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+    delete:
+      tags:
+      - Orders and jobs
+      operationId: deleteOrder
+      summary: Permanently delete order
+      description: Permanently removes the row. There is no archive, soft-delete, cascade, or restore operation.
+      responses:
+        '200':
+          description: Deletion result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteEnvelope'
+              example:
+                data:
+                  id: ORD-0001
+                  deleted: true
+                meta:
+                  request_id: req_example
+                  timestamp: '2026-10-11T08:00:00Z'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/StorageError'
+        '503':
+          $ref: '#/components/responses/AuthUnavailable'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+    options:
+      tags:
+      - CORS and preflight
+      operationId: preflightOrdersItem
+      summary: Handle browser CORS preflight
+      description: The handler returns 204 before routing or authentication. Allowed methods are GET, POST, PATCH,
+        DELETE, OPTIONS; allowed request headers are Content-Type, Authorization, X-Request-ID.
+      security: []
+      responses:
+        '204':
+          description: Preflight accepted. Access-Control-Allow-Origin depends on CORS_ALLOWED_ORIGINS.
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+            Access-Control-Allow-Methods:
+              schema:
+                type: string
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+  /team:
+    get:
+      tags:
+      - Team
+      operationId: listTeamMembers
+      summary: List team
+      description: Directory records only. name and phone are required. These records do not create API identities
+        or grant permissions. Results are restricted to the authenticated Camel Accounts subject. q/status filtering
+        is performed before pagination. A page beyond the end returns an empty array.
+      parameters:
+      - $ref: '#/components/parameters/Q'
+      - $ref: '#/components/parameters/Status'
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: Collection and pagination metadata.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamMemberListEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '503':
+          $ref: '#/components/responses/AuthUnavailable'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+    post:
+      tags:
+      - Team
+      operationId: createTeamMember
+      summary: Create team member
+      description: Directory records only. name and phone are required. These records do not create API identities
+        or grant permissions. The API assigns the record ID and owner_sub; caller-supplied ID/ownership values cannot
+        establish ownership. Request properties are open ended and unknown properties are preserved.
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TeamMember'
+            examples:
+              example:
+                summary: Team request
+                value:
+                  name: Neema John
+                  phone: +255 713 222 333
+                  role: Technician
+                  active: true
+        description: Request bodies are limited to 1 MiB and must contain exactly one JSON object.
+      responses:
+        '201':
+          description: Record created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamMemberEnvelope'
+              example: &id006
+                data:
+                  id: TM-0001
+                  owner_sub: camel-account-subject
+                  name: Neema John
+                  phone: +255 713 222 333
+                  role: Technician
+                  active: true
+                meta:
+                  request_id: req_example
+                  timestamp: '2026-10-11T08:00:00Z'
+        '400':
+          $ref: '#/components/responses/InvalidJson'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/StorageError'
+        '503':
+          $ref: '#/components/responses/AuthUnavailable'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+    options:
+      tags:
+      - CORS and preflight
+      operationId: preflightTeamCollection
+      summary: Handle browser CORS preflight
+      description: The handler returns 204 before routing or authentication. Allowed methods are GET, POST, PATCH,
+        DELETE, OPTIONS; allowed request headers are Content-Type, Authorization, X-Request-ID.
+      security: []
+      responses:
+        '204':
+          description: Preflight accepted. Access-Control-Allow-Origin depends on CORS_ALLOWED_ORIGINS.
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+            Access-Control-Allow-Methods:
+              schema:
+                type: string
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+  /team/{id}:
+    parameters:
+    - $ref: '#/components/parameters/RecordId'
+    - $ref: '#/components/parameters/RequestId'
+    get:
+      tags:
+      - Team
+      operationId: getTeamMember
+      summary: Get one team member
+      description: Returns the matching record only when it is owned by the authenticated subject. A record owned
+        by another subject is indistinguishable from a missing record.
+      responses:
+        '200':
+          description: Record found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamMemberEnvelope'
+              example: *id006
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/AuthUnavailable'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+    patch:
+      tags:
+      - Team
+      operationId: patchTeamMember
+      summary: Partially update team member
+      description: Performs a shallow merge into the current JSON record and validates the merged result. The API
+        ignores id, owner_sub, and ownerSub from this body. No business-specific field schema or workflow transition
+        is enforced.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchTeamMember'
+            examples:
+              partial:
+                value:
+                  role: Technician
+                  active: true
+        description: Request bodies are limited to 1 MiB and must contain exactly one JSON object.
+      responses:
+        '200':
+          description: Updated record.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamMemberEnvelope'
+              example: *id006
+        '400':
+          $ref: '#/components/responses/InvalidJson'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/StorageError'
+        '503':
+          $ref: '#/components/responses/AuthUnavailable'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+    delete:
+      tags:
+      - Team
+      operationId: deleteTeamMember
+      summary: Permanently delete team member
+      description: Permanently removes the row. There is no archive, soft-delete, cascade, or restore operation.
+      responses:
+        '200':
+          description: Deletion result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteEnvelope'
+              example:
+                data:
+                  id: TM-0001
+                  deleted: true
+                meta:
+                  request_id: req_example
+                  timestamp: '2026-10-11T08:00:00Z'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/StorageError'
+        '503':
+          $ref: '#/components/responses/AuthUnavailable'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+    options:
+      tags:
+      - CORS and preflight
+      operationId: preflightTeamItem
+      summary: Handle browser CORS preflight
+      description: The handler returns 204 before routing or authentication. Allowed methods are GET, POST, PATCH,
+        DELETE, OPTIONS; allowed request headers are Content-Type, Authorization, X-Request-ID.
+      security: []
+      responses:
+        '204':
+          description: Preflight accepted. Access-Control-Allow-Origin depends on CORS_ALLOWED_ORIGINS.
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+            Access-Control-Allow-Methods:
+              schema:
+                type: string
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+  /expenses:
+    get:
+      tags:
+      - Expenses
+      operationId: listExpenses
+      summary: List expenses
+      description: Expense entries. description, category, date are required and non-empty; amount must be greater
+        than zero. Date is not parsed and categories are not constrained. Results are restricted to the authenticated
+        Camel Accounts subject. q/status filtering is performed before pagination. A page beyond the end returns
+        an empty array.
+      parameters:
+      - $ref: '#/components/parameters/Q'
+      - $ref: '#/components/parameters/Status'
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: Collection and pagination metadata.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExpenseListEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '503':
+          $ref: '#/components/responses/AuthUnavailable'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+    post:
+      tags:
+      - Expenses
+      operationId: createExpense
+      summary: Create expense
+      description: Expense entries. description, category, date are required and non-empty; amount must be greater
+        than zero. Date is not parsed and categories are not constrained. The API assigns the record ID and owner_sub;
+        caller-supplied ID/ownership values cannot establish ownership. Request properties are open ended and unknown
+        properties are preserved.
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Expense'
+            examples:
+              example:
+                summary: Expenses request
+                value:
+                  description: Laundry detergent
+                  category: Supplies
+                  amount: 85000
+                  date: '2026-10-11'
+                  method: Cash
+                  vendor: City Wholesale
+                  notes: Two cartons
+        description: Request bodies are limited to 1 MiB and must contain exactly one JSON object.
+      responses:
+        '201':
+          description: Record created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExpenseEnvelope'
+              example: &id007
+                data:
+                  id: EXP-0001
+                  owner_sub: camel-account-subject
+                  description: Laundry detergent
+                  category: Supplies
+                  amount: 85000
+                  date: '2026-10-11'
+                  method: Cash
+                meta:
+                  request_id: req_example
+                  timestamp: '2026-10-11T08:00:00Z'
+        '400':
+          $ref: '#/components/responses/InvalidJson'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/StorageError'
+        '503':
+          $ref: '#/components/responses/AuthUnavailable'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+    options:
+      tags:
+      - CORS and preflight
+      operationId: preflightExpensesCollection
+      summary: Handle browser CORS preflight
+      description: The handler returns 204 before routing or authentication. Allowed methods are GET, POST, PATCH,
+        DELETE, OPTIONS; allowed request headers are Content-Type, Authorization, X-Request-ID.
+      security: []
+      responses:
+        '204':
+          description: Preflight accepted. Access-Control-Allow-Origin depends on CORS_ALLOWED_ORIGINS.
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+            Access-Control-Allow-Methods:
+              schema:
+                type: string
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+  /expenses/{id}:
+    parameters:
+    - $ref: '#/components/parameters/RecordId'
+    - $ref: '#/components/parameters/RequestId'
+    get:
+      tags:
+      - Expenses
+      operationId: getExpense
+      summary: Get one expense
+      description: Returns the matching record only when it is owned by the authenticated subject. A record owned
+        by another subject is indistinguishable from a missing record.
+      responses:
+        '200':
+          description: Record found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExpenseEnvelope'
+              example: *id007
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/AuthUnavailable'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+    patch:
+      tags:
+      - Expenses
+      operationId: patchExpense
+      summary: Partially update expense
+      description: Performs a shallow merge into the current JSON record and validates the merged result. The API
+        ignores id, owner_sub, and ownerSub from this body. No business-specific field schema or workflow transition
+        is enforced.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchExpense'
+            examples:
+              partial:
+                value:
+                  vendor: City Wholesale
+                  notes: Two cartons
+        description: Request bodies are limited to 1 MiB and must contain exactly one JSON object.
+      responses:
+        '200':
+          description: Updated record.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExpenseEnvelope'
+              example: *id007
+        '400':
+          $ref: '#/components/responses/InvalidJson'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/StorageError'
+        '503':
+          $ref: '#/components/responses/AuthUnavailable'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+    delete:
+      tags:
+      - Expenses
+      operationId: deleteExpense
+      summary: Permanently delete expense
+      description: Permanently removes the row. There is no archive, soft-delete, cascade, or restore operation.
+      responses:
+        '200':
+          description: Deletion result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteEnvelope'
+              example:
+                data:
+                  id: EXP-0001
+                  deleted: true
+                meta:
+                  request_id: req_example
+                  timestamp: '2026-10-11T08:00:00Z'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/StorageError'
+        '503':
+          $ref: '#/components/responses/AuthUnavailable'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+    options:
+      tags:
+      - CORS and preflight
+      operationId: preflightExpensesItem
+      summary: Handle browser CORS preflight
+      description: The handler returns 204 before routing or authentication. Allowed methods are GET, POST, PATCH,
+        DELETE, OPTIONS; allowed request headers are Content-Type, Authorization, X-Request-ID.
+      security: []
+      responses:
+        '204':
+          description: Preflight accepted. Access-Control-Allow-Origin depends on CORS_ALLOWED_ORIGINS.
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+            Access-Control-Allow-Methods:
+              schema:
+                type: string
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+  /health:
+    get:
+      tags:
+      - Health
+      operationId: getHealth
+      summary: Check API process health
+      description: Public liveness response. Does not test Camel Accounts, authenticated data access, or SQLite
+        write readiness.
+      security: []
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: Process handled the health request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthEnvelope'
+              example:
+                data:
+                  status: ok
+                  service: simamia-api
+                  version: v1
+                  time_zone: Africa/Dar_es_Salaam
+                  currency: TZS
+                meta:
+                  request_id: req_example
+                  timestamp: '2026-10-11T08:00:00Z'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+    options:
+      tags:
+      - CORS and preflight
+      operationId: preflightHealth
+      summary: Handle health CORS preflight
+      security: []
+      responses:
+        '204':
+          description: Preflight accepted.
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+            Access-Control-Allow-Methods:
+              schema:
+                type: string
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+  /payments:
+    get:
+      tags:
+      - Payments
+      operationId: listPaymentLedger
+      summary: List derived payment balances
+      description: 'Returns one ledger row per owned order. Each row is computed from order.amount and order.paid
+        when requested: due = amount - paid; status is paid if paid >= amount, otherwise pending. This route does
+        not call or verify a payment provider. It ignores list filters and returns all rows for the account.'
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: Derived ledger rows with the implementation pagination metadata (page=1, page_size=number
+            of rows, total=number of rows, total_pages=1).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentLedgerListEnvelope'
+              example:
+                data:
+                - id: PAY-0248
+                  order_id: ORD-0248
+                  customer: Asha Mushi
+                  amount: 25000
+                  paid: 10000
+                  due: 15000
+                  currency: TZS
+                  method: M-Pesa
+                  status: pending
+                meta:
+                  request_id: req_example
+                  timestamp: '2026-10-11T08:00:00Z'
+                  pagination:
+                    page: 1
+                    page_size: 1
+                    total: 1
+                    total_pages: 1
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '503':
+          $ref: '#/components/responses/AuthUnavailable'
+    options:
+      tags:
+      - CORS and preflight
+      operationId: preflightPayments
+      summary: Handle payment ledger CORS preflight
+      description: Returns 204 before auth or route handling. Allowed methods are GET, POST, PATCH, DELETE, OPTIONS;
+        allowed headers are Content-Type, Authorization, X-Request-ID.
+      security: []
+      responses:
+        '204':
+          description: Preflight accepted.
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+            Access-Control-Allow-Methods:
+              schema:
+                type: string
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+components:
+  securitySchemes:
+    camelBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: OAuth 2.0 access token
+      description: Access token from a successful Camel Accounts OAuth session. Sent to Camel Accounts /oauth/userinfo
+        for validation.
+    simamiaAdminKey:
+      type: apiKey
+      in: header
+      name: X-Simamia-Admin-Key
+      description: Private server-to-server key. Never expose this key in browser code; call through the Admin app proxy.
+  parameters:
+    OwnerSub:
+      name: owner_sub
+      in: path
+      required: true
+      description: Camel Accounts subject owning these Simamia records.
+      schema:
+        type: string
+    AdminResource:
+      name: resource
+      in: path
+      required: true
+      schema:
+        type: string
+        enum: [businesses, customers, services, orders, team, expenses]
+    AdminRecordId:
+      name: record_id
+      in: path
+      required: true
+      schema:
+        type: string
+    RequestId:
+      name: X-Request-ID
+      in: header
+      required: false
+      description: Optional correlation ID echoed in the response header and meta. Generated by the API when omitted.
+      schema:
+        type: string
+    RecordId:
+      name: id
+      in: path
+      required: true
+      description: Server-generated record ID.
+      schema:
+        type: string
+    Q:
+      name: q
+      in: query
+      description: Case-insensitive substring search across the JSON serialization of each owned record.
+      schema:
+        type: string
+    Status:
+      name: status
+      in: query
+      description: Exact, case-sensitive match against the record status property.
+      schema:
+        type: string
+    Page:
+      name: page
+      in: query
+      description: One-based page number. Invalid or less-than-one values use 1.
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    PageSize:
+      name: page_size
+      in: query
+      description: Page size; invalid or less-than-one values use 20. Values above 100 are capped.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+  schemas:
+    AdminRecordInput:
+      type: object
+      additionalProperties: true
+      description: Flexible record payload; ID and tenant ownership are assigned/protected server-side.
+    AdminEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          additionalProperties: true
+        meta:
+          $ref: '#/components/schemas/Meta'
+    AdminListEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        meta:
+          $ref: '#/components/schemas/Meta'
+    Meta:
+      type: object
+      required:
+      - request_id
+      - timestamp
+      properties:
+        request_id:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+    Pagination:
+      type: object
+      required:
+      - page
+      - page_size
+      - total
+      - total_pages
+      properties:
+        page:
+          type: integer
+        page_size:
+          type: integer
+        total:
+          type: integer
+        total_pages:
+          type: integer
+    SuccessEnvelope:
+      type: object
+      required:
+      - data
+      - meta
+      properties:
+        data: {}
+        meta:
+          $ref: '#/components/schemas/Meta'
+    ListEnvelope:
+      type: object
+      required:
+      - data
+      - meta
+      properties:
+        data:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        meta:
+          $ref: '#/components/schemas/Meta'
+    DeleteResult:
+      type: object
+      required:
+      - id
+      - deleted
+      properties:
+        id:
+          type: string
+        deleted:
+          type: boolean
+          const: true
+    ErrorEnvelope:
+      type: object
+      required:
+      - error
+      - meta
+      properties:
+        error:
+          type: object
+          required:
+          - code
+          - message
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            details:
+              type: object
+              additionalProperties: true
+        meta:
+          $ref: '#/components/schemas/Meta'
+    Business:
+      type: object
+      properties: &id008
+        businessName: &id014
+          type: string
+          description: Business display name. Required by the app flow, but not required by API validation.
+        phone: &id015
+          type: string
+          description: Business contact phone. The API does not normalize or validate phone syntax.
+        primaryTemplate: &id016
+          type: string
+          description: Selected workflow template ID, for example general, salon, garage, phone_repair, laundry,
+            butcher, mobile_money, or tailor.
+        templateVersion: &id017
+          type: integer
+          description: Client supplied template version.
+        createdAt: &id018
+          type: string
+          description: Client supplied creation timestamp; the API does not parse this field.
+      additionalProperties: true
+    Customer:
+      type: object
+      properties: &id009
+        name: &id019
+          type: string
+          description: Customer name. Required and non-empty after whitespace trimming.
+        phone: &id020
+          type: string
+          description: Customer phone. Required and non-empty; no normalization or syntax check.
+        email: &id021
+          type: string
+          description: Optional customer email address; not syntax-validated.
+        location: &id022
+          type: string
+          description: Optional address or area.
+        orders: &id023
+          type: integer
+          description: Optional client maintained order count.
+        spent: &id024
+          type: number
+          description: Optional client maintained lifetime spend amount.
+        currency: &id025
+          type: string
+          description: Optional display currency, commonly TZS.
+        last: &id026
+          type: string
+          description: Optional client maintained last-visit label.
+      additionalProperties: true
+      required:
+      - name
+      - phone
+    Service:
+      type: object
+      properties: &id010
+        name: &id027
+          type: string
+          description: Service name; required and non-empty.
+        category: &id028
+          type: string
+          description: Optional caller-defined category.
+        duration: &id029
+          type: string
+          description: Optional caller-defined duration label.
+        price: &id030
+          type: number
+          description: Price amount; required and greater than zero.
+          exclusiveMinimum: 0
+        currency: &id031
+          type: string
+          description: Currency label; defaults to TZS when omitted.
+        active: &id032
+          type: boolean
+          description: Whether the service is active; defaults to true.
+      additionalProperties: true
+      required:
+      - name
+      - price
+    Order:
+      type: object
+      properties: &id011
+        customer: &id033
+          type: string
+          description: Customer display name; required and non-empty. No customer ID relationship is enforced.
+        phone: &id034
+          type: string
+          description: Optional customer phone copied onto the job.
+        service: &id035
+          type: string
+          description: Service display name; required and non-empty. No catalog relationship is enforced.
+        date: &id036
+          type: string
+          description: Optional scheduled/received date or timestamp; use ISO 8601 consistently.
+        amount: &id037
+          type: number
+          description: Total job amount; required and greater than zero.
+          exclusiveMinimum: 0
+        paid: &id038
+          type: number
+          description: Amount paid so far; defaults to zero. It may exceed amount because this is not validated.
+        currency: &id039
+          type: string
+          description: Currency label; defaults to TZS.
+        status: &id040
+          type: string
+          description: Workflow status; defaults to New. Any string is accepted, with no transition validation.
+        method: &id041
+          type: string
+          description: Payment method label, such as M-Pesa, Cash, Mixx by Yas, Airtel Money, or —.
+        assignee: &id042
+          type: string
+          description: Optional staff display name.
+        paymentType: &id043
+          type: string
+          description: Optional app field describing payment type, for example Installment.
+        templateId: &id044
+          type: string
+          description: Optional app workflow template identifier.
+        customFields: &id045
+          type: object
+          additionalProperties:
+            type: string
+          description: Optional template-specific fields; arbitrary string-keyed values are retained.
+      additionalProperties: true
+      required:
+      - customer
+      - service
+      - amount
+    TeamMember:
+      type: object
+      properties: &id012
+        name: &id046
+          type: string
+          description: Team member name; required and non-empty.
+        phone: &id047
+          type: string
+          description: Team member phone; required and non-empty.
+        role: &id048
+          type: string
+          description: Optional role label; not used for authorization.
+        active: &id049
+          type: boolean
+          description: Optional display flag; not enforced by access checks.
+        commissionRate: &id050
+          type: number
+          description: Optional arbitrary client field; no commission calculation is performed.
+      additionalProperties: true
+      required:
+      - name
+      - phone
+    Expense:
+      type: object
+      properties: &id013
+        description: &id051
+          type: string
+          description: Expense description; required and non-empty.
+        category: &id052
+          type: string
+          description: Expense category; required and non-empty, but caller-defined.
+        amount: &id053
+          type: number
+          description: Expense amount; required and greater than zero.
+          exclusiveMinimum: 0
+        date: &id054
+          type: string
+          description: Expense date; required and non-empty. Use YYYY-MM-DD; API does not parse it.
+        method: &id055
+          type: string
+          description: Optional payment-method label.
+        vendor: &id056
+          type: string
+          description: Optional supplier/vendor name.
+        notes: &id057
+          type: string
+          description: Optional note.
+      additionalProperties: true
+      required:
+      - description
+      - category
+      - amount
+      - date
+    PaymentLedgerEntry:
+      type: object
+      required:
+      - id
+      - order_id
+      - customer
+      - amount
+      - paid
+      - due
+      - currency
+      - method
+      - status
+      properties:
+        id:
+          type: string
+          examples:
+          - PAY-0248
+        order_id:
+          type: string
+        customer:
+          type: string
+        amount:
+          type: number
+        paid:
+          type: number
+        due:
+          type: number
+          description: amount minus paid; can be negative if paid exceeds amount.
+        currency:
+          type: string
+          const: TZS
+        method:
+          type:
+          - string
+          - 'null'
+          description: Copies the order method value and may be null when the order has no method property.
+        status:
+          type: string
+          enum:
+          - paid
+          - pending
+          description: paid when paid >= amount; pending otherwise.
+    PatchBusiness:
+      type: object
+      description: Only changed properties are required. The merged record is validated after the patch is applied.
+      properties: *id008
+      additionalProperties: true
+    PatchCustomer:
+      type: object
+      description: Only changed properties are required. The merged record is validated after the patch is applied.
+      properties: *id009
+      additionalProperties: true
+    PatchService:
+      type: object
+      description: Only changed properties are required. The merged record is validated after the patch is applied.
+      properties: *id010
+      additionalProperties: true
+    PatchOrder:
+      type: object
+      description: Only changed properties are required. The merged record is validated after the patch is applied.
+      properties: *id011
+      additionalProperties: true
+    PatchTeamMember:
+      type: object
+      description: Only changed properties are required. The merged record is validated after the patch is applied.
+      properties: *id012
+      additionalProperties: true
+    PatchExpense:
+      type: object
+      description: Only changed properties are required. The merged record is validated after the patch is applied.
+      properties: *id013
+      additionalProperties: true
+    BusinessRecord:
+      type: object
+      required:
+      - id
+      - owner_sub
+      properties:
+        id:
+          type: string
+          readOnly: true
+          description: Server-generated identifier (prefix BIZ-).
+        owner_sub:
+          type: string
+          readOnly: true
+          description: Camel Accounts subject that owns the record.
+        businessName: *id014
+        phone: *id015
+        primaryTemplate: *id016
+        templateVersion: *id017
+        createdAt: *id018
+        ownerSub:
+          type: string
+          readOnly: true
+          description: Compatibility property returned for business profile records.
+      additionalProperties: true
+    BusinessEnvelope:
+      type: object
+      required:
+      - data
+      - meta
+      properties:
+        data:
+          $ref: '#/components/schemas/BusinessRecord'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    BusinessListEnvelope:
+      type: object
+      required:
+      - data
+      - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/BusinessRecord'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    CustomerRecord:
+      type: object
+      required:
+      - id
+      - owner_sub
+      properties:
+        id:
+          type: string
+          readOnly: true
+          description: Server-generated identifier (prefix CUS-).
+        owner_sub:
+          type: string
+          readOnly: true
+          description: Camel Accounts subject that owns the record.
+        name: *id019
+        phone: *id020
+        email: *id021
+        location: *id022
+        orders: *id023
+        spent: *id024
+        currency: *id025
+        last: *id026
+      additionalProperties: true
+    CustomerEnvelope:
+      type: object
+      required:
+      - data
+      - meta
+      properties:
+        data:
+          $ref: '#/components/schemas/CustomerRecord'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    CustomerListEnvelope:
+      type: object
+      required:
+      - data
+      - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/CustomerRecord'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    ServiceRecord:
+      type: object
+      required:
+      - id
+      - owner_sub
+      properties:
+        id:
+          type: string
+          readOnly: true
+          description: Server-generated identifier (prefix SRV-).
+        owner_sub:
+          type: string
+          readOnly: true
+          description: Camel Accounts subject that owns the record.
+        name: *id027
+        category: *id028
+        duration: *id029
+        price: *id030
+        currency: *id031
+        active: *id032
+      additionalProperties: true
+    ServiceEnvelope:
+      type: object
+      required:
+      - data
+      - meta
+      properties:
+        data:
+          $ref: '#/components/schemas/ServiceRecord'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    ServiceListEnvelope:
+      type: object
+      required:
+      - data
+      - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServiceRecord'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    OrderRecord:
+      type: object
+      required:
+      - id
+      - owner_sub
+      properties:
+        id:
+          type: string
+          readOnly: true
+          description: Server-generated identifier (prefix ORD-).
+        owner_sub:
+          type: string
+          readOnly: true
+          description: Camel Accounts subject that owns the record.
+        customer: *id033
+        phone: *id034
+        service: *id035
+        date: *id036
+        amount: *id037
+        paid: *id038
+        currency: *id039
+        status: *id040
+        method: *id041
+        assignee: *id042
+        paymentType: *id043
+        templateId: *id044
+        customFields: *id045
+      additionalProperties: true
+    OrderEnvelope:
+      type: object
+      required:
+      - data
+      - meta
+      properties:
+        data:
+          $ref: '#/components/schemas/OrderRecord'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    OrderListEnvelope:
+      type: object
+      required:
+      - data
+      - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderRecord'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    TeamMemberRecord:
+      type: object
+      required:
+      - id
+      - owner_sub
+      properties:
+        id:
+          type: string
+          readOnly: true
+          description: Server-generated identifier (prefix TM-).
+        owner_sub:
+          type: string
+          readOnly: true
+          description: Camel Accounts subject that owns the record.
+        name: *id046
+        phone: *id047
+        role: *id048
+        active: *id049
+        commissionRate: *id050
+      additionalProperties: true
+    TeamMemberEnvelope:
+      type: object
+      required:
+      - data
+      - meta
+      properties:
+        data:
+          $ref: '#/components/schemas/TeamMemberRecord'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    TeamMemberListEnvelope:
+      type: object
+      required:
+      - data
+      - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/TeamMemberRecord'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    ExpenseRecord:
+      type: object
+      required:
+      - id
+      - owner_sub
+      properties:
+        id:
+          type: string
+          readOnly: true
+          description: Server-generated identifier (prefix EXP-).
+        owner_sub:
+          type: string
+          readOnly: true
+          description: Camel Accounts subject that owns the record.
+        description: *id051
+        category: *id052
+        amount: *id053
+        date: *id054
+        method: *id055
+        vendor: *id056
+        notes: *id057
+      additionalProperties: true
+    ExpenseEnvelope:
+      type: object
+      required:
+      - data
+      - meta
+      properties:
+        data:
+          $ref: '#/components/schemas/ExpenseRecord'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    ExpenseListEnvelope:
+      type: object
+      required:
+      - data
+      - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExpenseRecord'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    DeleteEnvelope:
+      type: object
+      required:
+      - data
+      - meta
+      properties:
+        data:
+          $ref: '#/components/schemas/DeleteResult'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    Health:
+      type: object
+      required:
+      - status
+      - service
+      - version
+      - time_zone
+      - currency
+      properties:
+        status:
+          type: string
+          const: ok
+        service:
+          type: string
+          const: simamia-api
+        version:
+          type: string
+          const: v1
+        time_zone:
+          type: string
+          const: Africa/Dar_es_Salaam
+        currency:
+          type: string
+          const: TZS
+    HealthEnvelope:
+      type: object
+      required:
+      - data
+      - meta
+      properties:
+        data:
+          $ref: '#/components/schemas/Health'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    PaymentLedgerListEnvelope:
+      type: object
+      required:
+      - data
+      - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/PaymentLedgerEntry'
+        meta:
+          $ref: '#/components/schemas/Meta'
+  responses:
+    AdminUnauthorized:
+      description: Missing or invalid X-Simamia-Admin-Key.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    AdminDisabled:
+      description: Admin API is disabled because SIMAMIA_ADMIN_TOKEN is not configured with at least 32 characters.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    InvalidJson:
+      description: Malformed JSON, body not a JSON object, trailing JSON value, or invalid request body.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: INVALID_JSON
+              message: request body must contain one JSON object
+            meta:
+              request_id: req_example
+              timestamp: '2026-10-11T08:00:00Z'
+    Unauthorized:
+      description: Missing, invalid, or expired Camel Accounts bearer token.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    NotFound:
+      description: Unknown endpoint/resource, or record absent/not owned by the authenticated subject.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    MethodNotAllowed:
+      description: Method not allowed. Response includes an Allow header.
+      headers:
+        Allow:
+          schema:
+            type: string
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    ValidationError:
+      description: Required field missing/empty, or amount/price is not greater than zero.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    StorageError:
+      description: SQLite storage operation failed.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    AuthUnavailable:
+      description: Camel Accounts userinfo could not be reached within the 4 second timeout.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'

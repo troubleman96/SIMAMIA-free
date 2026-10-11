@@ -9,7 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -31,6 +31,7 @@ type Store struct {
 type API struct {
 	store       *Store
 	accountsURL string
+	startedAt   time.Time
 }
 type ownerSubContextKey struct{}
 
@@ -148,6 +149,19 @@ func OpenStore(path string) (*Store, error) {
 		_ = db.Close()
 		return nil, fmt.Errorf("initialize record storage: %w", err)
 	}
+	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS admin_audit (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		actor TEXT NOT NULL,
+		action TEXT NOT NULL,
+		resource TEXT NOT NULL,
+		record_id TEXT NOT NULL DEFAULT '',
+		owner_sub TEXT NOT NULL DEFAULT '',
+		occurred_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		changed_fields TEXT NOT NULL DEFAULT '[]'
+	)`); err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("initialize admin audit storage: %w", err)
+	}
 
 	store := &Store{tables: make(map[string][]Record), counters: make(map[string]int), db: db}
 	for _, resource := range []string{"orders", "customers", "services", "team", "expenses", "businesses"} {
@@ -235,10 +249,91 @@ func (s *Store) remove(resource string, id string) error {
 	return err
 }
 
+type responseRecorder struct {
+	http.ResponseWriter
+	status int
+}
+
+func (w *responseRecorder) WriteHeader(status int) {
+	if w.status != 0 {
+		return
+	}
+	w.status = status
+	w.ResponseWriter.WriteHeader(status)
+}
+
+func (w *responseRecorder) Write(body []byte) (int, error) {
+	if w.status == 0 {
+		w.WriteHeader(http.StatusOK)
+	}
+	return w.ResponseWriter.Write(body)
+}
+
 func (a *API) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	started := time.Now()
+	requestID := r.Header.Get("X-Request-ID")
+	response := &responseRecorder{ResponseWriter: w}
+	a.handleHTTP(response, r)
+	status := response.status
+	if status == 0 {
+		status = http.StatusOK
+	}
+	attrs := []any{
+		"method", r.Method,
+		"route", logRoute(r.URL.Path),
+		"status", status,
+		"duration_ms", time.Since(started).Milliseconds(),
+	}
+	if requestID == "" {
+		requestID = response.Header().Get("X-Request-ID")
+	}
+	if safeRequestID(requestID) {
+		attrs = append(attrs, "request_id", requestID)
+	}
+	if status >= http.StatusInternalServerError {
+		slog.Error("http_request", attrs...)
+	} else if status >= http.StatusBadRequest {
+		slog.Warn("http_request", attrs...)
+	} else {
+		slog.Info("http_request", attrs...)
+	}
+}
+
+func safeRequestID(requestID string) bool {
+	if len(requestID) != 20 || !strings.HasPrefix(requestID, "req_") {
+		return false
+	}
+	_, err := hex.DecodeString(strings.TrimPrefix(requestID, "req_"))
+	return err == nil
+}
+
+func logRoute(path string) string {
+	parts := strings.Split(strings.Trim(path, "/"), "/")
+	if len(parts) >= 3 && parts[0] == "api" && parts[1] == "v1" {
+		resource := parts[2]
+		if resource == "admin" {
+			return "/api/v1/admin"
+		}
+		if resource == "health" && len(parts) == 3 {
+			return "/api/v1/health"
+		}
+		switch resource {
+		case "businesses", "customers", "services", "orders", "team", "expenses", "payments":
+			if len(parts) > 3 {
+				return "/api/v1/" + resource + "/{id}"
+			}
+			return "/api/v1/" + resource
+		}
+		return "/api/v1/{resource}"
+	}
+	return "/{path}"
+}
+
+func (a *API) handleHTTP(w http.ResponseWriter, r *http.Request) {
 	setCORSHeaders(w, r)
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Request-ID")
 	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS")
+	w.Header().Set("Access-Control-Expose-Headers", "X-Request-ID")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Cache-Control", "no-store")
 	if r.Method == http.MethodOptions {
@@ -261,6 +356,10 @@ func (a *API) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		a.write(w, http.StatusOK, Record{"status": "ok", "service": "simamia-api", "version": "v1", "time_zone": "Africa/Dar_es_Salaam", "currency": "TZS"}, requestID, nil)
+		return
+	}
+	if parts[2] == "admin" {
+		a.adminHTTP(w, r, requestID, parts[3:])
 		return
 	}
 	ownerSub, ok := a.authenticate(w, r, requestID)
@@ -360,10 +459,12 @@ func (a *API) collection(w http.ResponseWriter, r *http.Request, rid, resource s
 			}
 		}
 		if err := a.store.insert(resource, in); err != nil {
+			slog.Error("record_write_failed", "operation", "create", "resource", resource, "error", err)
 			a.fail(w, r, rid, http.StatusInternalServerError, "STORAGE_ERROR", "Could not save record", nil)
 			return
 		}
 		a.store.tables[resource] = append([]Record{in}, a.store.tables[resource]...)
+		slog.Info("record_created", "resource", resource, "record_id", id)
 		a.write(w, http.StatusCreated, in, rid, nil)
 	default:
 		a.methodNotAllowed(w, r, rid, "GET, POST")
@@ -405,6 +506,7 @@ func (a *API) item(w http.ResponseWriter, r *http.Request, rid, resource, id str
 					return
 				}
 				if err := a.store.replace(resource, id, updated); err != nil {
+					slog.Error("record_write_failed", "operation", "update", "resource", resource, "record_id", id, "error", err)
 					a.fail(w, r, rid, http.StatusInternalServerError, "STORAGE_ERROR", "Could not update record", nil)
 					return
 				}
@@ -414,6 +516,7 @@ func (a *API) item(w http.ResponseWriter, r *http.Request, rid, resource, id str
 						break
 					}
 				}
+				slog.Info("record_updated", "resource", resource, "record_id", id)
 				a.write(w, http.StatusOK, updated, rid, nil)
 				return
 			}
@@ -427,10 +530,12 @@ func (a *API) item(w http.ResponseWriter, r *http.Request, rid, resource, id str
 		for i, row := range rows {
 			if row["id"] == id && row["owner_sub"] == ownerSub {
 				if err := a.store.remove(resource, id); err != nil {
+					slog.Error("record_write_failed", "operation", "delete", "resource", resource, "record_id", id, "error", err)
 					a.fail(w, r, rid, http.StatusInternalServerError, "STORAGE_ERROR", "Could not delete record", nil)
 					return
 				}
 				a.store.tables[resource] = append(rows[:i], rows[i+1:]...)
+				slog.Info("record_deleted", "resource", resource, "record_id", id)
 				a.write(w, http.StatusOK, Record{"id": id, "deleted": true}, rid, nil)
 				return
 			}
@@ -608,6 +713,19 @@ func (a *API) methodNotAllowed(w http.ResponseWriter, r *http.Request, rid, allo
 	a.fail(w, r, rid, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Method not allowed", Record{"allow": allow})
 }
 func main() {
+	level := new(slog.LevelVar)
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("LOG_LEVEL"))) {
+	case "debug":
+		level.Set(slog.LevelDebug)
+	case "warn", "warning":
+		level.Set(slog.LevelWarn)
+	case "error":
+		level.Set(slog.LevelError)
+	default:
+		level.Set(slog.LevelInfo)
+	}
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: level})))
+
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
@@ -626,13 +744,15 @@ func main() {
 	}
 	store, err := OpenStore(databasePath)
 	if err != nil {
-		log.Fatalf("initialize Simamia storage: %v", err)
+		slog.Error("startup_failed", "component", "storage", "error", err)
+		os.Exit(1)
 	}
 	defer store.db.Close()
-	api := &API{store: store}
+	api := &API{store: store, accountsURL: os.Getenv("CAMEL_ACCOUNTS_URL"), startedAt: time.Now()}
 	srv := &http.Server{Addr: "0.0.0.0:" + port, Handler: api, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 15 * time.Second, IdleTimeout: 60 * time.Second}
-	log.Printf("Simamia API listening on :%s", port)
+	slog.Info("service_started", "service", "simamia-api", "port", port, "database", databasePath)
 	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		log.Fatal(err)
+		slog.Error("service_stopped_unexpectedly", "error", err)
+		os.Exit(1)
 	}
 }

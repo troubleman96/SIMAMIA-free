@@ -1,0 +1,28 @@
+---
+title: Operations
+description: Configure, deploy, monitor, and back up the Simamia API.
+---
+
+import { Cards } from 'nextra/components'
+
+# Operations
+
+Operational guides for teams running the current Go API.
+
+<Cards>
+  <Cards.Card title="Configuration" href="/operations/configuration">Environment variables, database path, and CORS.</Cards.Card>
+  <Cards.Card title="Deployment" href="/operations/deployment">Run and update the production Compose stack.</Cards.Card>
+  <Cards.Card title="Limits and safety" href="/operations/limits">Understand current product and financial boundaries.</Cards.Card>
+</Cards>
+
+## Production checklist
+
+- Set `CAMEL_ACCOUNTS_URL` to the trusted Camel Accounts issuer.
+- Set `CORS_ALLOWED_ORIGINS` to the exact production app origin.
+- Persist `/data/simamia.db` on durable storage and back it up off-server.
+- Terminate TLS at the documented reverse proxy and expose only the proxy to the public network.
+- Monitor `/api/v1/health`, application logs, disk space, and backup success.
+- Run one API instance while SQLite is the storage backend.
+- Keep example credentials, database files, and tokens out of source control and logs.
+
+See the [Simamia monorepo deployment guide](https://github.com/troubleman96/SIMAMIA/blob/main/docs/deployment.md) for the existing VPS topology.

@@ -1,0 +1,81 @@
+---
+title: Orders and jobs
+description: Track customer work, status, assignments, and amount paid.
+---
+
+# Orders and jobs
+
+Orders represent the work unit in the current general API model. A business template may display an order as an appointment, job card, repair ticket, cleaning order, sale, agent transaction, or tailoring order. The API stores flexible JSON; it does not currently validate template-specific details or status transitions.
+
+## Routes
+
+`GET /orders`, `POST /orders`, `GET /orders/{id}`, `PATCH /orders/{id}`, `DELETE /orders/{id}`.
+
+## Create an order
+
+`customer`, `service`, and positive `amount` are required. `status`, `paid`, and `currency` default to `New`, `0`, and `TZS` respectively.
+
+```bash
+curl -X POST "$SIMAMIA_API/orders" \
+  -H "Authorization: Bearer $SIMAMIA_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "customer":"Asha Mushi",
+    "phone":"+255 712 345 678",
+    "service":"Wash and fold",
+    "date":"2026-10-12T09:00:00+03:00",
+    "amount":25000,
+    "status":"New",
+    "paid":0,
+    "currency":"TZS",
+    "method":"Not paid",
+    "assignee":"Owner",
+    "notes":"Collect after 16:00"
+  }'
+```
+
+| Field | Required | Notes |
+| --- | --- | --- |
+| `customer` | Yes | Non-empty customer display value; no foreign key lookup. |
+| `service` | Yes | Non-empty service display value; no catalog lookup. |
+| `amount` | Yes | Must be greater than zero. Intended to be in TZS. |
+| `status` | No | Defaults to `New`; any non-empty/empty string accepted by the generic validator. |
+| `paid` | No | Defaults to zero; API does not validate `paid <= amount`. |
+| `currency` | No | Defaults to `TZS`. |
+| `date`, `phone`, `method`, `assignee`, `notes` | No | Flexible JSON fields used by the app. |
+
+Additional workflow-specific properties are retained, such as `vehicleRegistration`, `serialOrImei`, `itemTag`, `weightKg`, or fitting information. The API does not validate those fields or enforce a transition graph.
+
+## List by status
+
+```bash
+curl --get "$SIMAMIA_API/orders" \
+  -H "Authorization: Bearer $SIMAMIA_TOKEN" \
+  --data-urlencode 'status=In progress' \
+  --data-urlencode 'page=1' --data-urlencode 'page_size=25'
+```
+
+Status filtering is exact and case-sensitive. `q` is a case-insensitive search across the stored JSON values.
+
+## Advance work and record payment
+
+```bash
+curl -X PATCH "$SIMAMIA_API/orders/ORD-0248" \
+  -H "Authorization: Bearer $SIMAMIA_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"status":"Ready","paid":10000,"method":"M-Pesa"}'
+```
+
+This changes the operational record and therefore the balance returned by `GET /payments`. It does not confirm a mobile money transaction. Never set `paid` based on an unverified customer claim or provider callback.
+
+## Read or delete
+
+```bash
+curl "$SIMAMIA_API/orders/ORD-0248" \
+  -H "Authorization: Bearer $SIMAMIA_TOKEN"
+
+curl -X DELETE "$SIMAMIA_API/orders/ORD-0248" \
+  -H "Authorization: Bearer $SIMAMIA_TOKEN"
+```
+
+Deleting an order also removes its corresponding row from the derived payment ledger. The API has no order archive or restore operation.

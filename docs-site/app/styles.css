@@ -1,0 +1,95 @@
+:root {
+  --simamia-teal: #0f766e;
+  --simamia-teal-soft: #ccfbf1;
+}
+
+body {
+  font-family: var(--font-outfit), ui-sans-serif, system-ui, sans-serif;
+}
+
+body :is(h1, h2, h3, h4, h5, h6),
+body .nextra-content :is(strong, b),
+body .brand-lockup {
+  font-family: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
+}
+
+.brand-lockup {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+.brand-mark {
+  display: inline-grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border-radius: 0.65rem;
+  color: white;
+  background: var(--simamia-teal);
+  font-size: 0.95rem;
+}
+
+.brand-muted {
+  color: #64748b;
+  font-weight: 500;
+}
+
+.nextra-callout {
+  border-radius: 0.75rem;
+}
+
+.swagger-page {
+  max-width: 100%;
+  padding: 1.5rem 1rem 4rem;
+}
+
+.swagger-intro {
+  max-width: 58rem;
+  margin: 0 auto 2rem;
+}
+
+.swagger-intro h1 {
+  margin: 0.35rem 0 0.75rem;
+  font-size: clamp(2rem, 4vw, 3rem);
+  letter-spacing: -0.04em;
+}
+
+.swagger-intro p:not(.swagger-eyebrow) {
+  max-width: 45rem;
+  color: #64748b;
+}
+
+.swagger-eyebrow {
+  color: var(--simamia-teal);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.swagger-intro a {
+  display: inline-flex;
+  margin-top: 0.5rem;
+  color: var(--simamia-teal);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.swagger-ui {
+  max-width: 76rem;
+  margin: 0 auto;
+  font-family: var(--font-outfit), ui-sans-serif, system-ui, sans-serif;
+}
+
+.swagger-ui .opblock-tag,
+.swagger-ui .opblock-summary-description,
+.swagger-ui .info .title {
+  font-family: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
+}
+
+.swagger-ui .topbar {
+  display: none;
+}

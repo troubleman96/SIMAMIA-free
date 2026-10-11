@@ -1,0 +1,52 @@
+---
+title: Deployment
+description: Run and update the API with the Simamia production Compose topology.
+---
+
+# Deployment
+
+The API is normally deployed with the landing website and app from the Simamia repository. The root Compose file builds the Go API image and mounts its SQLite file in the persistent `simamia_data` volume.
+
+## Standalone server with Caddy
+
+Point `simamia.online`, `app.simamia.online`, and `api.simamia.online` to the server, open inbound ports 80/443, then from the Simamia repo root:
+
+```bash
+cp .env.server.example .env
+# Review .env and configure production origins.
+docker compose up -d --build
+docker compose ps
+curl https://api.simamia.online/api/v1/health
+```
+
+Caddy routes the API host to the internal `api:8080` service and obtains TLS certificates automatically.
+
+## Existing host Nginx VPS
+
+When an existing Nginx service owns ports 80 and 443, use the VPS Compose override. It binds the services to loopback ports 4173 (landing), 4174 (app), and 4175 (API):
+
+```bash
+docker compose -f compose.yaml -f deploy/compose.vps.yaml up -d --build
+```
+
+Configure the host Nginx and certificates using `deploy/nginx-simamia.conf` and the instructions in the monorepo deployment guide. Do not bind the standalone Caddy profile on that host.
+
+## Update a running deployment
+
+Before an update, take and verify an off-server database backup. Then pull the reviewed release and rebuild:
+
+```bash
+docker compose up -d --build
+docker compose ps
+curl https://api.simamia.online/api/v1/health
+```
+
+For an existing Nginx VPS, use the same Compose override used at initial deployment.
+
+## Back up SQLite
+
+The repository deployment guide describes a live SQLite `.backup` command and copying the backup off the VPS. Keep the backup outside the container and test restoration periodically. A Docker volume alone is persistence, not a backup.
+
+## Scaling constraint
+
+This service uses local SQLite and a single-connection pool. Run only one API instance for a given database file. Horizontal API scaling requires a shared transactional database and migration plan.

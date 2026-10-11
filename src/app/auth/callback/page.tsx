@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Icons } from '@/components/icons';
+import { logClientAuditEvent, logClientEvent } from '@/lib/observability';
 
 const issuer = process.env.NEXT_PUBLIC_CAMEL_ACCOUNTS_URL || 'https://accounts.camelcreatives.com';
 const clientId = process.env.NEXT_PUBLIC_CAMEL_ACCOUNTS_CLIENT_ID || 'simamia-35sj96';
@@ -36,6 +37,10 @@ export default function CamelAuthCallbackPage() {
       const pendingValue = localStorage.getItem('simamia_oauth_pending');
 
       const fail = (reason: string) => {
+        logClientEvent('warn', 'auth.callback_failed', {
+          area: 'auth',
+          operation: 'oauth_callback'
+        });
         localStorage.removeItem('simamia_oauth_pending');
         localStorage.setItem('simamia_oauth_error', reason);
         if (!cancelled) {
@@ -95,6 +100,10 @@ export default function CamelAuthCallbackPage() {
         );
         localStorage.removeItem('simamia_oauth_pending');
         localStorage.removeItem('simamia_oauth_error');
+        logClientAuditEvent('auth.sign_in_succeeded', {
+          area: 'auth',
+          operation: 'oauth_callback'
+        });
 
         if (!cancelled) {
           setMessage('Umeingia. Dirisha hili litafungwa…');

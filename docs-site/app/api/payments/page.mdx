@@ -1,0 +1,53 @@
+---
+title: Payment ledger
+description: Read outstanding balances derived from orders.
+---
+
+# Payment ledger
+
+## `GET /payments`
+
+Returns one calculated ledger row for every order owned by the authenticated account. It requires a Camel Accounts bearer token.
+
+```bash
+curl --include https://api.simamia.online/api/v1/payments \
+  -H "Authorization: Bearer $SIMAMIA_TOKEN"
+```
+
+Example data:
+
+```json
+{
+  "data": [
+    {
+      "id": "PAY-0248",
+      "order_id": "ORD-0248",
+      "customer": "Asha Mushi",
+      "amount": 25000,
+      "paid": 10000,
+      "due": 15000,
+      "currency": "TZS",
+      "method": "M-Pesa",
+      "status": "pending"
+    }
+  ],
+  "meta": {
+    "request_id": "req_...",
+    "timestamp": "2026-10-11T08:00:00Z",
+    "pagination": { "page": 1, "page_size": 1, "total": 1, "total_pages": 1 }
+  }
+}
+```
+
+## How the values are calculated
+
+For each order, `due = amount - paid`. Status is `paid` when `paid >= amount`, otherwise `pending`. A partial payment remains `pending`. Currency is emitted as `TZS` by the current implementation.
+
+The ledger is calculated when requested; there is no separately stored payment record. To change the displayed balance, patch the order's `paid` value. That patch is only a manual ledger update and does not call M-Pesa, Mixx, Airtel Money, or another payment provider.
+
+## Limitations
+
+- `GET` is the only supported method. `POST /payments`, `PATCH /payments/{id}`, and `DELETE /payments/{id}` do not exist.
+- There are no date, payment method, status, or pagination filters for this endpoint. It returns all account-owned order balances.
+- This is not a payment collection API, bank reconciliation, an immutable double-entry ledger, an invoice, or a TRA fiscal receipt.
+- The current API does not enforce `paid <= amount`; a larger value yields a negative `due` and `paid` status.

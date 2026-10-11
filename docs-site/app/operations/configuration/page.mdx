@@ -1,0 +1,38 @@
+---
+title: Configuration
+description: API environment variables, database paths, CORS, and health behavior.
+---
+
+# Configuration
+
+## Environment variables
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `PORT` | `8080` | TCP port the API listens on at `0.0.0.0`. |
+| `SIMAMIA_DB_PATH` | `data/simamia.db` | SQLite database path relative to the API working directory. |
+| `HUDUMADESK_DB_PATH` | unset | Legacy fallback path used only when `SIMAMIA_DB_PATH` is unset. Existing `data/hudumadesk.db` may be selected for compatibility when present. |
+| `CAMEL_ACCOUNTS_URL` | `https://accounts.camelcreatives.com` | OAuth issuer base URL; API calls its `/oauth/userinfo` endpoint. |
+| `CORS_ALLOWED_ORIGINS` | `*` when unset | Comma-separated exact browser origins, or `*`. Set explicitly in production. |
+
+The root Compose service sets `PORT=8080`, `SIMAMIA_DB_PATH=/data/simamia.db`, and a persistent volume at `/data`. The application frontend receives its API URL as a public build-time variable, `NEXT_PUBLIC_SIMAMIA_API_URL`.
+
+## Database setup
+
+The API creates the parent directory and `records` table at startup. SQLite uses a 5-second busy timeout, WAL journal mode, foreign key enforcement, and a single open database connection. The current record model itself has no relational foreign keys.
+
+At startup, the API seeds illustrative rows with `owner_sub=local-preview` when all four core collections (`orders`, `customers`, `services`, and `team`) are empty. The seed check does not consider `businesses` or `expenses`, so an otherwise non-empty database can receive the demo rows if those four collections are empty. The rows are not visible to a normal Camel Accounts subject. For account-specific work, create records using authenticated API calls.
+
+## CORS
+
+Set an exact allowlist such as:
+
+```env
+CORS_ALLOWED_ORIGINS=https://app.simamia.online
+```
+
+The API returns CORS headers only when the request's `Origin` matches an allowed item. When unset, it allows `*`; that is convenient for local browser development but too broad for production. CORS is a browser policy, not authentication: non-browser clients still need a valid token.
+
+## Health endpoint
+
+`GET /api/v1/health` returns static service information and is suitable for a process/container liveness check. It does not contact Camel Accounts. The Docker Compose health check uses the local HTTP endpoint inside the API container.

@@ -1,0 +1,68 @@
+---
+title: Collection operations
+description: Shared create, list, item, patch, delete, pagination, and filtering behavior.
+---
+
+# Collection operations
+
+The following routes are available for `businesses`, `customers`, `services`, `orders`, `team`, and `expenses`:
+
+| Method | Path | Success |
+| --- | --- | --- |
+| `GET` | `/{resource}` | `200`, data is a paginated array |
+| `POST` | `/{resource}` | `201`, data is the created record |
+| `GET` | `/{resource}/{id}` | `200`, data is one record |
+| `PATCH` | `/{resource}/{id}` | `200`, data is the updated record |
+| `DELETE` | `/{resource}/{id}` | `200`, data contains ID and `deleted: true` |
+
+Replace `{resource}` with a supported collection name and `{id}` with a server-issued ID.
+
+## List, search, filter, and paginate
+
+```bash
+curl --get "$SIMAMIA_API/orders" \
+  -H "Authorization: Bearer $SIMAMIA_TOKEN" \
+  --data-urlencode 'q=asha' \
+  --data-urlencode 'status=In progress' \
+  --data-urlencode 'page=1' \
+  --data-urlencode 'page_size=20'
+```
+
+Search is a lowercase substring match over all JSON fields in each account-owned row. It is not a field-specific search index. `status` matches exactly, including case. Filtering occurs before pagination; `total` is the number of records after filtering.
+
+## Read one record
+
+```bash
+curl "$SIMAMIA_API/customers/CUS-0087" \
+  -H "Authorization: Bearer $SIMAMIA_TOKEN"
+```
+
+An unknown ID and an ID owned by another subject both return `404 NOT_FOUND`.
+
+## Patch a record
+
+```bash
+curl -X PATCH "$SIMAMIA_API/orders/ORD-0248" \
+  -H "Authorization: Bearer $SIMAMIA_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"status":"Ready","paid":25000}'
+```
+
+Patches are shallow merges. For example, changing `status` preserves other values. The merged record is validated before save. The API ignores `id`, `owner_sub`, and `ownerSub` supplied in the patch.
+
+## Delete a record
+
+```bash
+curl -X DELETE "$SIMAMIA_API/customers/CUS-0087" \
+  -H "Authorization: Bearer $SIMAMIA_TOKEN"
+```
+
+Delete is permanent. Deleting a customer or service does not update orders that contain its name.
+
+## Create body rules
+
+- Body must be one JSON object. Arrays, `null`, malformed JSON, trailing JSON values, and bodies larger than 1 MiB are rejected.
+- Resource-specific required properties are documented on each resource page.
+- Extra properties are retained as supplied; the API does not enforce a closed schema.
+- The create operation replaces a caller-supplied `id` with its generated ID and sets ownership itself.
+- `PATCH` may send only changed properties; required properties must still be present after merge.

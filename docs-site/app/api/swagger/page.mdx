@@ -1,0 +1,25 @@
+---
+title: Interactive Swagger UI
+description: Interactive Swagger UI for every operation in the Simamia Go API.
+---
+
+import { SwaggerExplorer } from './swagger-explorer'
+
+# Interactive API reference
+
+This explorer is rendered from the OpenAPI 3.1 specification that is maintained with the Go API. It includes each collection operation, request schema, common response envelope, authentication, and the read-only payment ledger.
+
+<SwaggerExplorer />
+
+Download the [OpenAPI YAML](/openapi.yaml) to import into Swagger Editor, Postman, Insomnia, or an OpenAPI code generator. The matching source contract lives at [`api/openapi.yaml`](https://github.com/troubleman96/SIMAMIA/blob/main/api/openapi.yaml).
+
+## Before using “Try it out”
+
+- Select the production server only when you intend to access production data. `DELETE` is permanent.
+- Paste a Camel Accounts **access token** using the **Authorize** control. The API validates it through Camel Accounts; a phone number, password, Google ID token, or ID token is not an API bearer token.
+- Requests from a browser must come from an origin allowed by `CORS_ALLOWED_ORIGINS`.
+- `GET /health` is public. Every other documented operation requires a valid bearer access token.
+- `GET /payments` is a computed balance view. It does not collect or verify mobile-money payments.
+- Admin operations in the contract require a private server-side key. Do not use Swagger's browser based Try it out for those production operations; use the authenticated Simamia Admin console.
+
+For field-by-field behavior and complete curl workflows, use the [API overview](/api), [authentication guide](/concepts/authentication), and resource guides in the API section.

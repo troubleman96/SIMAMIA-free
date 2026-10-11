@@ -1,0 +1,57 @@
+---
+title: Authentication
+description: Use Camel Accounts OAuth access tokens to call protected Simamia endpoints.
+---
+
+# Authentication
+
+## Token issuer
+
+Simamia uses Camel Accounts as its identity provider. The production issuer is `https://accounts.camelcreatives.com`. The app obtains an OAuth access token with its public client and sends that token to the API as a bearer credential.
+
+```http
+Authorization: Bearer <access-token>
+```
+
+The API does not accept a phone number, password, Google ID token, or browser cookie as a substitute. Obtain tokens through the supported Camel Accounts sign-in flow; do not implement password collection in an API integration.
+
+## What the API validates
+
+For each protected request, the Go API:
+
+1. Requires the `Authorization: Bearer ...` header.
+2. Sends the token to `{CAMEL_ACCOUNTS_URL}/oauth/userinfo`.
+3. Extracts the authenticated `sub` claim (including the supported `data.sub` response shape).
+4. Uses that subject as the owner scope for the request.
+
+The userinfo request has a four-second timeout. The API does not locally validate a JWT signature; Camel Accounts is authoritative for token validity.
+
+## Status behavior
+
+| Condition | Response |
+| --- | --- |
+| Missing, malformed, invalid, or expired bearer token | `401 UNAUTHORIZED` |
+| Camel Accounts cannot be reached before timeout | `503 AUTH_UNAVAILABLE` |
+| Userinfo response is missing an account subject | `401 UNAUTHORIZED` |
+| Valid token | Continue with records scoped to that account subject |
+
+Do not automatically retry `401` with the same token. Refresh or reauthenticate through Camel Accounts. A bounded retry may be appropriate for a temporary `503`.
+
+## Account isolation
+
+All API resources use `owner_sub` as their ownership boundary. List queries exclude other subjects; item reads, patches, and deletes return `404` when the record is absent or owned by a different subject. This avoids revealing whether another account owns a particular ID.
+
+Business membership and roles are not implemented. A second staff member with a different Camel Accounts subject will not automatically see the owner's records. Do not build team-sharing behavior on top of client-side IDs.
+
+## Browser CORS
+
+The app uses cross-origin requests from `https://app.simamia.online` to `https://api.simamia.online`. The server reads `CORS_ALLOWED_ORIGINS` as a comma-separated list of exact origins. Configure production with the app origin, including scheme and without a trailing slash. An unset allowlist permits `*` for local development and should not be used as a production configuration.
+
+Preflight requests are answered with allowed methods `GET, POST, PATCH, DELETE, OPTIONS` and headers `Content-Type, Authorization, X-Request-ID`.
+
+## Token safety
+
+- Store tokens only in the trusted client auth SDK's protected browser storage/session strategy.
+- Never include tokens in a URL, analytics event, exception message, or server log.
+- Use HTTPS outside local development.
+- Avoid long-lived copies in scripts and shell history. For interactive examples, pass the token through an environment variable as shown in [getting started](/getting-started).

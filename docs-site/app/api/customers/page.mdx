@@ -1,0 +1,54 @@
+---
+title: Customers
+description: Create, search, update, and remove customer contact records.
+---
+
+# Customers
+
+Customers are account-owned contact records. `name` and `phone` are required. Other JSON properties, such as `email` and `location`, are optional and retained.
+
+## Routes
+
+`GET /customers`, `POST /customers`, `GET /customers/{id}`, `PATCH /customers/{id}`, `DELETE /customers/{id}`.
+
+## Create
+
+```bash
+curl -X POST "$SIMAMIA_API/customers" \
+  -H "Authorization: Bearer $SIMAMIA_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"Asha Mushi","phone":"+255 712 345 678","email":"asha@example.test","location":"Kinondoni, Dar es Salaam"}'
+```
+
+Required fields:
+
+| Field | Example | Notes |
+| --- | --- | --- |
+| `name` | `Asha Mushi` | Must be a non-empty value after trimming whitespace. |
+| `phone` | `+255 712 345 678` | Must be non-empty. Phone syntax is not normalized or validated by the API. |
+
+The API does not check that phone numbers are unique.
+
+## List and search
+
+```bash
+curl --get "$SIMAMIA_API/customers" \
+  -H "Authorization: Bearer $SIMAMIA_TOKEN" \
+  --data-urlencode 'q=asha' --data-urlencode 'page=1' --data-urlencode 'page_size=20'
+```
+
+`q` searches all serialized properties, including phone and location. See [collection operations](/api/collections) for pagination metadata.
+
+## Update and delete
+
+```bash
+curl -X PATCH "$SIMAMIA_API/customers/CUS-0087" \
+  -H "Authorization: Bearer $SIMAMIA_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"phone":"+255 713 000 111","location":"Mikocheni"}'
+
+curl -X DELETE "$SIMAMIA_API/customers/CUS-0087" \
+  -H "Authorization: Bearer $SIMAMIA_TOKEN"
+```
+
+Patch merges with the existing record, so `name` remains present when only `phone` changes. Existing orders are not rewritten or deleted when a customer is removed.

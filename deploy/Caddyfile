@@ -12,6 +12,16 @@ app.simamia.online {
   reverse_proxy app:80
 }
 
+admin.simamia.online {
+  encode zstd gzip
+  reverse_proxy admin:3000
+}
+
+docs.simamia.online {
+  encode zstd gzip
+  reverse_proxy docs:3000
+}
+
 api.simamia.online {
   encode zstd gzip
   reverse_proxy api:8080

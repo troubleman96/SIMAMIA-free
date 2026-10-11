@@ -1,0 +1,66 @@
+---
+title: Request validation
+description: Exact request-body rules, create requirements, defaults, PATCH merge behavior, and flexible fields.
+---
+
+# Request validation and field behavior
+
+The API uses a flexible JSON record format. The OpenAPI document gives integrations helpful field types, but the Go validator does not enforce a complete schema for every field. This guide describes what the running API actually checks.
+
+## Request body rules
+
+For `POST` and `PATCH` routes:
+
+1. Send one JSON object. A JSON array, `null`, malformed JSON, or a second JSON value is rejected with `400 INVALID_JSON`.
+2. The decoder reads at most 1 MiB. Keep the complete body below that size.
+3. The server decodes properties into a map and preserves extra properties. Unknown fields are not rejected.
+4. Required field checks run on create and again on the merged record after a patch.
+
+Send `Content-Type: application/json` even though the current Go handler parses JSON without checking that header.
+
+## Resource validation matrix
+
+| Resource | Required on create | Additional validation | Defaults applied by API |
+| --- | --- | --- | --- |
+| `businesses` | No resource-specific fields | None. An empty object is accepted. | `id`, `owner_sub`, and compatibility `ownerSub` are assigned. |
+| `customers` | `name`, `phone` | Both must be present and stringify to a non-empty, non-whitespace value. | `id`, `owner_sub`. |
+| `services` | `name`, `price` | `name` must be non-empty; `price` must convert to a number greater than zero. | `id`, `owner_sub`, `currency: "TZS"` when absent, `active: true` when absent. |
+| `orders` | `customer`, `service`, `amount` | Names must be non-empty; `amount` must convert to a number greater than zero. | `id`, `owner_sub`, `currency: "TZS"`, `status: "New"`, `paid: 0` when each key is absent. |
+| `team` | `name`, `phone` | Both must be present and stringify to a non-empty value. | `id`, `owner_sub`. |
+| `expenses` | `description`, `category`, `amount`, `date` | Text-like values must be non-empty; `amount` must convert to a number greater than zero. | `id`, `owner_sub`. |
+
+For `businesses`, the app expects fields such as `businessName`, `phone`, and `primaryTemplate`, but the backend does not require them. `primaryTemplate` is not checked against the eight template IDs. See the [business profile guide](/api/businesses).
+
+## What “required” means in the current Go code
+
+For required values, the validator checks that a property exists and its formatted value is not empty after trimming whitespace. It does not validate phone-number syntax, email syntax, ISO date syntax, field lengths, enum values, or the JSON type of every text field.
+
+For example, the validator does not guarantee that a customer phone is a valid Tanzanian number, even though a value such as `+255 712 345 678` is the expected client format. The app should validate user input before sending it.
+
+For prices and amounts, the Go code converts a value to a number and requires it to be greater than zero. Send JSON numbers such as `25000`; do not rely on numeric strings being accepted consistently by every client or downstream consumer.
+
+## Patch validation
+
+`PATCH /{resource}/{id}` performs a shallow merge:
+
+```text
+stored record + supplied patch fields = candidate updated record
+```
+
+The API validates the candidate record, then writes it. A customer patch may contain only `{"phone":"+255 713 000 111"}` because the existing `name` remains in the merged result. The patch is not a JSON Patch document and does not support paths such as `/address/city`.
+
+The server removes `id`, `owner_sub`, and `ownerSub` from a patch before merging. Those values cannot be changed by patching. On create, the server overwrites `id` and `owner_sub`; for a business profile it also sets `ownerSub` to the authenticated subject. Avoid sending server-managed fields.
+
+## Defaults only apply when a property is absent
+
+Order and service defaults are added when the key is missing. If a caller explicitly sends `"status": null`, `"paid": null`, or `"active": null`, that key is present and the API does not replace it with a default. Use the documented string, number, and boolean values instead of explicit `null` unless a field's schema allows null.
+
+The API does not require `paid` to be positive or less than or equal to `amount`. If a client records `paid` greater than `amount`, `/payments` returns a negative `due` value and considers the balance `paid`.
+
+## Ownership fields
+
+Every persisted API record is assigned an `owner_sub` from the Camel Accounts userinfo response. This exact field is used for list filtering and item authorization. The business profile also gets an `ownerSub` compatibility property because the app reads that spelling during onboarding. Do not treat arbitrary properties named `owner`, `businessId`, or `ownerSub` on other resource types as access-control boundaries.
+
+## Use the OpenAPI file with this distinction in mind
+
+The [OpenAPI YAML](/openapi.yaml) describes intended request field types and required fields so client tools can generate useful forms. Runtime validation is narrower: it checks required values and positive amounts, then stores the JSON record. The resource pages document those implementation-specific checks; the Go handler is authoritative if a schema and a runtime edge case differ.

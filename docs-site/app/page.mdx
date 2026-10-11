@@ -1,0 +1,52 @@
+---
+title: Simamia API documentation
+description: Build integrations on Simamia's service management API.
+---
+
+import { Cards } from 'nextra/components'
+
+# Simamia API
+
+## Operational workflows, clearly connected
+
+This site explains how to authenticate, create a business profile, manage customers and work, track costs, and read the balances Simamia derives from work records.
+
+<Cards>
+  <Cards.Card title="Start integrating" href="/getting-started">Configure a client and make your first authenticated request.</Cards.Card>
+  <Cards.Card title="Understand how it works" href="/api/how-it-works">Read the API guide from the first request through a completed job.</Cards.Card>
+  <Cards.Card title="Explore endpoints" href="/api">Browse resources, methods, payloads, and response behavior.</Cards.Card>
+  <Cards.Card title="Open Swagger UI" href="/api/swagger">Inspect schemas and try the documented API operations.</Cards.Card>
+  <Cards.Card title="See the system map" href="/architecture">Follow authentication, API routing, and data ownership.</Cards.Card>
+</Cards>
+
+## What the API does today
+
+The API is a versioned Go HTTP service backed by SQLite. Camel Accounts access tokens identify the account making a request. Supported collections are businesses, customers, services, orders, team, and expenses. A read-only payments endpoint derives outstanding balances from order amounts and payments recorded on each order.
+
+The API does not currently move money, send SMS or email, call AI providers, issue fiscal receipts, or enforce staff roles. See [current limitations](/operations/limits) before designing a production integration.
+
+## Request path
+
+```mermaid
+flowchart LR
+  Client[Web app or integration] -->|HTTPS + Bearer token| API[Simamia Go API]
+  API -->|GET /oauth/userinfo| Accounts[Camel Accounts]
+  Accounts -->|Account subject| API
+  API -->|owner_sub filter| SQLite[(SQLite records)]
+  SQLite --> API
+  API -->|JSON data + meta| Client
+  API -->|public GET| Health[/api/v1/health]
+```
+
+## Choose the right guide
+
+| Goal | Start here |
+| --- | --- |
+| Make a first authenticated request | [Getting started](/getting-started) |
+| Understand bearer auth and account isolation | [Authentication](/concepts/authentication) |
+| Understand envelopes, errors, and pagination | [Responses and errors](/concepts/responses-errors) |
+| Read or write each resource | [API reference](/api) |
+| Follow the customer-to-order sequence | [Create and complete a job](/workflows/create-and-complete-job) |
+| Configure or operate the service | [Operations](/operations) |
+
+The content is maintained alongside the Simamia API implementation. The OpenAPI contract is available at [`api/openapi.yaml`](https://github.com/troubleman96/SIMAMIA/blob/main/api/openapi.yaml).

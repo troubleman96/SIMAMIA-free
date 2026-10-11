@@ -1,0 +1,52 @@
+---
+title: Record expenses and review balances
+description: Add operating costs and read service-order balances.
+---
+
+# Record expenses and review balances
+
+Expenses and the payment ledger are separate. An expense is an outflow entered by the business. A payment row is a calculated balance derived from an order. Neither endpoint performs a transfer or bank reconciliation.
+
+```mermaid
+flowchart LR
+  Staff[Authorized account user] --> Expense[POST /expenses]
+  Expense --> DB[(SQLite records)]
+  Staff --> Order[PATCH /orders/{id}: paid amount]
+  Order --> DB
+  DB --> Ledger[GET /payments]
+  Ledger --> Balance[amount minus paid]
+  DB --> ExpenseReport[GET /expenses]
+  ExpenseReport --> Owner[App report view]
+```
+
+## Save an expense
+
+Send a description, category, positive amount, and date to `POST /expenses`. Use a consistent date representation, preferably `YYYY-MM-DD`; the API only checks for a non-empty date string.
+
+```bash
+curl -X POST "$SIMAMIA_API/expenses" \
+  -H "Authorization: Bearer $SIMAMIA_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"description":"Shop rent","category":"Rent","amount":650000,"date":"2026-10-11","method":"Bank transfer"}'
+```
+
+## Review costs and amounts due
+
+Fetch expenses and payment balances separately:
+
+```bash
+curl "$SIMAMIA_API/expenses?page=1&page_size=100" \
+  -H "Authorization: Bearer $SIMAMIA_TOKEN"
+
+curl "$SIMAMIA_API/payments" \
+  -H "Authorization: Bearer $SIMAMIA_TOKEN"
+```
+
+Compute totals in a trusted reporting layer. Expenses can be paginated and need aggregation across pages when there are more than 100 records. The payments endpoint currently returns all balances in one response.
+
+## Reconciliation cautions
+
+- Do not assume `paid` means a provider verified payment. It is an order field edited by an authenticated client.
+- Do not treat the payment ledger as an immutable accounting journal.
+- The API does not provide date range filters or expense summary endpoints.
+- Editing or deleting records changes reports immediately; no audit log or soft-delete history is implemented.

@@ -1,0 +1,49 @@
+---
+title: Services
+description: Create and maintain a business service catalog with TZS pricing.
+---
+
+# Services
+
+Service catalog records describe work offered by a business. `name` and a positive `price` are required. The API adds defaults for `currency` and `active` when omitted.
+
+## Routes
+
+`GET /services`, `POST /services`, `GET /services/{id}`, `PATCH /services/{id}`, `DELETE /services/{id}`.
+
+## Create a service
+
+```bash
+curl -X POST "$SIMAMIA_API/services" \
+  -H "Authorization: Bearer $SIMAMIA_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"Wash and fold","category":"Laundry","duration":"24 hours","price":25000}'
+```
+
+| Field | Required | Example | Behavior |
+| --- | --- | --- | --- |
+| `name` | Yes | `Wash and fold` | Non-empty string |
+| `price` | Yes | `25000` | Must be greater than zero |
+| `category` | No | `Laundry` | Caller-defined string |
+| `duration` | No | `24 hours` | Caller-defined string |
+| `currency` | No | `TZS` | Defaults to `TZS` |
+| `active` | No | `true` | Defaults to `true` |
+
+Price is a plain numeric amount. The API does not currently support tax, discounts, price history, units, stock, or service-specific options.
+
+## List, update, and delete
+
+```bash
+curl "$SIMAMIA_API/services?q=laundry&page=1&page_size=50" \
+  -H "Authorization: Bearer $SIMAMIA_TOKEN"
+
+curl -X PATCH "$SIMAMIA_API/services/SRV-01" \
+  -H "Authorization: Bearer $SIMAMIA_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"price":28000,"active":false}'
+
+curl -X DELETE "$SIMAMIA_API/services/SRV-01" \
+  -H "Authorization: Bearer $SIMAMIA_TOKEN"
+```
+
+The API does not verify that an order's `service` value references a current service record. Existing order values remain unchanged if a service is renamed or deleted.

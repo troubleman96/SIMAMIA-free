@@ -1,0 +1,42 @@
+---
+title: Team
+description: Store team directory entries associated with the signed-in account.
+---
+
+# Team
+
+Team rows are currently directory records. They are not API identities and do not grant staff sign-in or authorization. The current access boundary is the Camel Accounts account subject that owns the row.
+
+## Routes
+
+`GET /team`, `POST /team`, `GET /team/{id}`, `PATCH /team/{id}`, `DELETE /team/{id}`.
+
+## Create a team record
+
+`name` and `phone` are required. Phone formatting is not checked by the API.
+
+```bash
+curl -X POST "$SIMAMIA_API/team" \
+  -H "Authorization: Bearer $SIMAMIA_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"Neema John","phone":"+255 713 222 333","role":"Technician","active":true}'
+```
+
+Extra properties like `role`, `active`, or `commissionRate` may be stored because resource input is flexible JSON. They are not used for authorization, payroll, commission calculation, or audit history.
+
+## List, update, and delete
+
+```bash
+curl "$SIMAMIA_API/team?q=technician&page=1&page_size=20" \
+  -H "Authorization: Bearer $SIMAMIA_TOKEN"
+
+curl -X PATCH "$SIMAMIA_API/team/TM-0005" \
+  -H "Authorization: Bearer $SIMAMIA_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"role":"Senior technician"}'
+
+curl -X DELETE "$SIMAMIA_API/team/TM-0005" \
+  -H "Authorization: Bearer $SIMAMIA_TOKEN"
+```
+
+Patch validation checks the merged row, so it can omit `name` and `phone` if those already exist.
