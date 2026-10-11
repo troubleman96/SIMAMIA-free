@@ -55,6 +55,16 @@ export function passwordMatches(password: string) {
   return timingSafeEqual(suppliedHash, expectedHash);
 }
 
+export function emailMatches(email: string) {
+  const expected = process.env.SIMAMIA_ADMIN_EMAIL ?? '';
+  if (!expected) return false;
+  const suppliedHash = createHmac('sha256', secret()).update(email.trim().toLowerCase()).digest();
+  const expectedHash = createHmac('sha256', secret())
+    .update(expected.trim().toLowerCase())
+    .digest();
+  return timingSafeEqual(suppliedHash, expectedHash);
+}
+
 export function isSameOrigin(request: Request) {
   const configured = process.env.ADMIN_APP_ORIGIN;
   const origin = request.headers.get('origin');

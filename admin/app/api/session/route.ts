@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import {
   clearAdminSession,
   createAdminSession,
+  emailMatches,
   hasAdminSession,
   isSameOrigin,
   passwordMatches
@@ -34,6 +35,7 @@ export async function POST(request: Request) {
       { status: 429 }
     );
   }
+  let email = '';
   let password = '';
   try {
     const contentLength = Number(request.headers.get('content-length') ?? 0);
@@ -42,20 +44,24 @@ export async function POST(request: Request) {
     const raw = await request.text();
     if (raw.length > 8192)
       return NextResponse.json({ error: 'Request body is too large.' }, { status: 413 });
-    const body = JSON.parse(raw) as { password?: unknown };
+    const body = JSON.parse(raw) as { email?: unknown; password?: unknown };
+    if (typeof body.email === 'string') email = body.email;
     if (typeof body.password === 'string') password = body.password;
   } catch {
-    return NextResponse.json({ error: 'Enter the admin password.' }, { status: 400 });
+    return NextResponse.json({ error: 'Enter your admin email and password.' }, { status: 400 });
   }
   try {
-    if (!passwordMatches(password)) {
+    if (!emailMatches(email) || !passwordMatches(password)) {
       attempts.set(
         forwarded,
         current && current.resetAt > now
           ? { count: current.count + 1, resetAt: current.resetAt }
           : { count: 1, resetAt: now + 15 * 60_000 }
       );
-      return NextResponse.json({ error: 'The password was not accepted.' }, { status: 401 });
+      return NextResponse.json(
+        { error: 'The email or password was not accepted.' },
+        { status: 401 }
+      );
     }
   } catch {
     return NextResponse.json({ error: 'Admin authentication is not configured.' }, { status: 503 });

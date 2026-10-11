@@ -9,7 +9,7 @@ bun install
 bun run dev
 ```
 
-Production requires `SIMAMIA_API_URL`, `SIMAMIA_ADMIN_API_TOKEN`, `SIMAMIA_ADMIN_PASSWORD`, `SIMAMIA_ADMIN_SESSION_SECRET`, and `ADMIN_APP_ORIGIN`. Keep secrets in the server environment; do not add them to the client bundle.
+Production requires `SIMAMIA_API_URL`, `SIMAMIA_ADMIN_EMAIL`, `SIMAMIA_ADMIN_API_TOKEN`, `SIMAMIA_ADMIN_PASSWORD`, `SIMAMIA_ADMIN_SESSION_SECRET`, and `ADMIN_APP_ORIGIN`. Keep credentials in the server environment; do not add them to the client bundle.
 
 ## Production container
 

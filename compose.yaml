@@ -29,6 +29,7 @@ services:
       NODE_ENV: production
       PORT: "3000"
       SIMAMIA_API_URL: http://api:8080/api/v1
+      SIMAMIA_ADMIN_EMAIL: ${SIMAMIA_ADMIN_EMAIL:?Set the admin email}
       SIMAMIA_ADMIN_API_TOKEN: ${SIMAMIA_ADMIN_API_TOKEN:?Set a random 32+ character admin API token}
       SIMAMIA_ADMIN_PASSWORD: ${SIMAMIA_ADMIN_PASSWORD:?Set the private admin password}
       SIMAMIA_ADMIN_SESSION_SECRET: ${SIMAMIA_ADMIN_SESSION_SECRET:?Set a random 32+ character session secret}

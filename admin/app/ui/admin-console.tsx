@@ -100,6 +100,7 @@ function Icon({ name }: { name: string }) {
 }
 
 function Login({ onLogin }: { onLogin: () => void }) {
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -111,7 +112,7 @@ function Login({ onLogin }: { onLogin: () => void }) {
       const response = await fetch('/api/session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password })
+        body: JSON.stringify({ email, password })
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error ?? 'Sign-in failed');
@@ -129,6 +130,16 @@ function Login({ onLogin }: { onLogin: () => void }) {
         <p className='eyebrow'>PRIVATE OPERATIONS CONSOLE</p>
         <h1>Sign in to Simamia Admin</h1>
         <p className='muted'>Manage Simamia accounts, service records, usage, and audit history.</p>
+        <label htmlFor='admin-email'>Admin email</label>
+        <input
+          id='admin-email'
+          type='email'
+          autoComplete='username'
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+          autoFocus
+        />
         <label htmlFor='admin-password'>Admin password</label>
         <input
           id='admin-password'
@@ -137,7 +148,6 @@ function Login({ onLogin }: { onLogin: () => void }) {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
-          autoFocus
         />
         <button className='primary full' disabled={busy}>
           {busy ? 'Signing in…' : 'Sign in securely'}

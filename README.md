@@ -99,6 +99,7 @@ bun run dev
 
 ```bash
 SIMAMIA_API_URL=http://localhost:8080/api/v1 \
+SIMAMIA_ADMIN_EMAIL=admin@example.com \
 SIMAMIA_ADMIN_API_TOKEN=local-development-token-at-least-32-chars \
 SIMAMIA_ADMIN_PASSWORD='local-private-password' \
 SIMAMIA_ADMIN_SESSION_SECRET='another-local-secret-at-least-32-chars' \

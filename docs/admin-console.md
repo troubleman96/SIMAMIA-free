@@ -14,7 +14,7 @@ flowchart LR
   Camel[Camel Accounts] -. identity subject on records .-> API
 ```
 
-The admin app has a separate operator password; it does not use Camel Accounts login and it does not expose the API key to browser code. Camel Accounts remains the authority for user credentials, Google connections, and identity lifecycle. Simamia currently derives tenant accounts from `owner_sub` values present in business records; it has no first-class account/membership table.
+The admin app has a separate operator email and password; it does not use Camel Accounts login and it does not expose the API key to browser code. Configure `SIMAMIA_ADMIN_EMAIL` and `SIMAMIA_ADMIN_PASSWORD` on the server. Camel Accounts remains the authority for user credentials, Google connections, and identity lifecycle. Simamia currently derives tenant accounts from `owner_sub` values present in business records; it has no first-class account/membership table.
 
 ## Admin screens
 
@@ -83,6 +83,7 @@ curl -X POST \
 Set these server-side variables in `.env` before starting Compose. Use different random values for all three secrets. Do not put them in `NEXT_PUBLIC_*` variables or commit `.env`.
 
 ```dotenv
+SIMAMIA_ADMIN_EMAIL=<private operator email>
 SIMAMIA_ADMIN_PASSWORD=<long private operator password>
 SIMAMIA_ADMIN_API_TOKEN=<at least 32 random characters>
 SIMAMIA_ADMIN_SESSION_SECRET=<different random secret, at least 32 characters>
@@ -104,7 +105,7 @@ docker compose up -d --build admin api caddy
 
 If host Nginx owns ports 80/443, use `deploy/compose.vps.yaml` and install `deploy/nginx-simamia.conf`; that proxy sends `admin.simamia.online` to loopback port `4176`. Obtain a TLS certificate for the admin hostname with the same Certbot setup as the other Simamia hosts.
 
-For local development, start the admin Next app on port 3001 with the root workspace tool. Provide `SIMAMIA_API_URL=http://localhost:8080/api/v1`, `SIMAMIA_ADMIN_API_TOKEN` (matching API's `SIMAMIA_ADMIN_TOKEN`), `SIMAMIA_ADMIN_PASSWORD`, `SIMAMIA_ADMIN_SESSION_SECRET`, and `ADMIN_APP_ORIGIN=http://localhost:3001`. The Go API needs a persistent SQLite database; its admin routes return `ADMIN_REQUIRES_DATABASE` when using the in-memory preview store.
+For local development, start the admin Next app on port 3001 from `admin/`. Provide `SIMAMIA_API_URL=http://localhost:8080/api/v1`, `SIMAMIA_ADMIN_EMAIL`, `SIMAMIA_ADMIN_API_TOKEN` (matching API's `SIMAMIA_ADMIN_TOKEN`), `SIMAMIA_ADMIN_PASSWORD`, `SIMAMIA_ADMIN_SESSION_SECRET`, and `ADMIN_APP_ORIGIN=http://localhost:3001`. The Go API needs a persistent SQLite database; its admin routes return `ADMIN_REQUIRES_DATABASE` when using the in-memory preview store.
 
 ## Security and operating limits
 
