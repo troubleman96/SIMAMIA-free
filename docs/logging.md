@@ -1,6 +1,6 @@
 # Application logging and error reporting
 
-Simamia writes operational logs as structured JSON to container output. Docker and the hosting platform should collect stdout and stderr; the application does not write log files into the source tree or SQLite database.
+Mishe writes operational logs as structured JSON to container output. Docker and the hosting platform should collect stdout and stderr; the application does not write log files into the source tree or SQLite database.
 
 ## What each service records
 
@@ -27,7 +27,7 @@ Example API event:
 
 Set `NEXT_PUBLIC_SENTRY_DSN` at build time to enable browser and Next.js error capture. Set `NEXT_PUBLIC_SENTRY_DISABLED=true` to disable Sentry. Sampling for performance transactions is 10%; error events are not sampled by this setting.
 
-Simamia disables Sentry's default PII collection, removes user identity and request headers/body/query data from events, strips query strings from URLs, and drops network breadcrumbs. The frontend logger only emits an allowlist of operational fields; it never sends tokens, passwords, phone numbers, customer names, request bodies, or raw error messages.
+Mishe disables Sentry's default PII collection, removes user identity and request headers/body/query data from events, strips query strings from URLs, and drops network breadcrumbs. The frontend logger only emits an allowlist of operational fields; it never sends tokens, passwords, phone numbers, customer names, request bodies, or raw error messages.
 
 ## Inspecting logs
 

@@ -1,6 +1,6 @@
-# Simamia vertical market and onboarding plan
+# Mishe vertical market and onboarding plan
 
-**Purpose:** decide which service businesses Simamia should support, how to validate the first market, and how a business chooses its workflow during setup.
+**Purpose:** decide which service businesses Mishe should support, how to validate the first market, and how a business chooses its workflow during setup.
 
 **Scope:** product and implementation plan only. This document does not change the app or its API.
 
@@ -14,7 +14,7 @@ Do not ask a person to pick an industry inside the authentication form. Authenti
 
 For market discovery, compare **salons/barbershops, laundry/shoe care, and repair workshops** with real operators before committing to a pilot. The workbook's weighted scores favor salons (4.50), garages (4.10), landlords (4.05), and phone repair (3.90). However, the workbook's “Top 4” sheet orders phone repair third and landlords fourth, while its weighted scores put landlords third and phone repair fourth. Treat this as a hypothesis-ranking mismatch to fix before using the sheet as a decision tool.
 
-Salons are the strongest initial *market hypothesis* for repeat use and message volume, but not an uncontested one. Tanzanian vendors already advertise salon products, and workshop software also exists. Laundry/shoe care is the strongest initial *execution hypothesis* because Simamia has already studied Shoe Cleaners and its receive → work → ready → collect journey maps closely to an order service platform. Select one pilot only after discovery. If no segment can produce five committed pilot businesses at an economically testable price, continue discovery rather than adding vertical-specific software.
+Salons are the strongest initial *market hypothesis* for repeat use and message volume, but not an uncontested one. Tanzanian vendors already advertise salon products, and workshop software also exists. Laundry/shoe care is the strongest initial *execution hypothesis* because Mishe has already studied Shoe Cleaners and its receive → work → ready → collect journey maps closely to an order service platform. Select one pilot only after discovery. If no segment can produce five committed pilot businesses at an economically testable price, continue discovery rather than adding vertical-specific software.
 
 ## 2. What the workbook says—and what it cannot establish
 
@@ -22,7 +22,7 @@ The workbook contains five tabs: segment scores, a manually selected top four, c
 
 The workbook is useful as a structured set of assumptions. It does not contain an owner survey, competitor audit, count of buyers willing to pay, customer acquisition cost, churn, gross margin, or verified SMS rate. In particular, “almost no local competition” for salons is contradicted by current vendor offers. A score of 5 for salon density or low competition is therefore not a fact; it needs a source or an interview-based revision.
 
-The National Bureau of Statistics and Zanzibar's OCGS counted 219,371 fixed-premise establishments in the 2023/24 Statistical Business Register, including 179,196 on Mainland Tanzania and 40,175 in Zanzibar. The register reports 25,935 establishments in Dar es Salaam. This is a useful top-level prospecting frame, not Simamia's addressable market: it is fixed-premise enumeration and does not measure software fit, purchasing authority, connectivity at the shop, or willingness to pay. The report lists 5,555 establishments in “other personal service activities,” which is a broad category, not a salon count; 659 in repair of computers and personal/household goods; and 9,905 in wholesale/retail trade and repair of motor vehicles/motorcycles. These category definitions are not one-to-one with the workbook segments. Extract the NBS table classifications before using them for TAM claims. [NBS/OCGS 2023/24 SBR report](https://www.nbs.go.tz/uploads/statistics/documents/en-1720549641-The_2023_24_Tanzania_Statistical_Business_Register_Report.pdf)
+The National Bureau of Statistics and Zanzibar's OCGS counted 219,371 fixed-premise establishments in the 2023/24 Statistical Business Register, including 179,196 on Mainland Tanzania and 40,175 in Zanzibar. The register reports 25,935 establishments in Dar es Salaam. This is a useful top-level prospecting frame, not Mishe's addressable market: it is fixed-premise enumeration and does not measure software fit, purchasing authority, connectivity at the shop, or willingness to pay. The report lists 5,555 establishments in “other personal service activities,” which is a broad category, not a salon count; 659 in repair of computers and personal/household goods; and 9,905 in wholesale/retail trade and repair of motor vehicles/motorcycles. These category definitions are not one-to-one with the workbook segments. Extract the NBS table classifications before using them for TAM claims. [NBS/OCGS 2023/24 SBR report](https://www.nbs.go.tz/uploads/statistics/documents/en-1720549641-The_2023_24_Tanzania_Statistical_Business_Register_Report.pdf)
 
 The national register is broad enough to justify testing a service-business product, but it cannot tell us that any particular segment is profitable. It also shows why fixed-premise totals should not be applied to mobile fundis, boda operators, or informal single-person businesses without additional sampling.
 
@@ -34,9 +34,9 @@ The national register is broad enough to justify testing a service-business prod
 - **Phone/electronics repair:** the core job-ticket fit is good, but IMEI/serial capture, intake condition, parts by model, warranty terms, and repair approval are vertical-specific needs. Validate demand before enabling a generic “repair” template that lacks those functions.
 - **Landlords/property managers:** recurring rent schedules, allocations, leases, units, deposits, meter charges, and arrears are a different product model from service jobs. The small “real estate” establishment category in the register is not a count of landlords or rental units. Treat property as a later adjacent product line, not a quick service template.
 
-Do not position Simamia as “no competition.” Test a sharper promise: a short Swahili-first workflow that works on a shared shop phone, clearly shows who took a job and who recorded money, gives the owner a daily close-out, and sends useful customer updates through the company's communication products.
+Do not position Mishe as “no competition.” Test a sharper promise: a short Swahili-first workflow that works on a shared shop phone, clearly shows who took a job and who recorded money, gives the owner a daily close-out, and sends useful customer updates through the company's communication products.
 
-## 3. Who Simamia should serve
+## 3. Who Mishe should serve
 
 ### Ideal customer profile for the shared engine
 
@@ -58,7 +58,7 @@ A good first customer has a physical or field-service team, repeat customer inte
 | Separate discovery | Gyms, driving schools, tuition centres | Repeat billing and reminders | Membership/term, attendance, class/vehicle schedules, guardian contacts, expiry and fee allocation |
 | Defer | Clinics, dental, laboratories | Appointments and billing fit the surface model | Sensitive health data, clinical safety, retention, access, integrations and regulatory review create a distinctly higher launch burden |
 
-“Can Simamia handle this?” should mean more than “can a user create a customer and order?” Define a segment as supported only when its critical workflow, field validation, roles, reports, reminders, offline behavior, migration/import, and customer-facing documents have been tested with businesses in that segment.
+“Can Mishe handle this?” should mean more than “can a user create a customer and order?” Define a segment as supported only when its critical workflow, field validation, roles, reports, reminders, offline behavior, migration/import, and customer-facing documents have been tested with businesses in that segment.
 
 ## 4. How vertical choice should work during signup
 
@@ -128,11 +128,11 @@ Initial workflow examples:
 
 ### Phase 1 — Authentication, workspaces, and safe data boundaries
 
-- Activate and verify the chosen authentication provider end to end. Clerk exists in dependencies/starter components, but the active root layout currently does not mount the Clerk provider; the Simamia page is a client-side demo shell and no active middleware/proxy protection was found in `src/app`.
+- Activate and verify the chosen authentication provider end to end. Clerk exists in dependencies/starter components, but the active root layout currently does not mount the Clerk provider; the Mishe page is a client-side demo shell and no active middleware/proxy protection was found in `src/app`.
 - Implement owner signup, workspace creation, invitation acceptance, sign-in/out, session expiry and recovery. Make workspace selection distinct from login.
 - Add server-side membership, role checks and workspace scoping to every API read/write; add organization/branch isolation tests and audit records before storing real customer details.
 - Replace global CORS `*`, public writable API behavior, generic mock IDs, and browser-local business-data persistence as production mechanisms. Add schema migrations, backups, restore checks, rate limits, secret management, monitoring and request limits.
-- Complete a data-flow map and PDPC/legal review. Names, phone numbers, job history and payment details are personal data. The Act states that a person shall not collect/process personal data without registration as controller or processor; confirm the applicable registration/role for Simamia and participating businesses. Assess cross-border transfers for hosting, Ngamia prompts, email/SMS vendors, logs, telemetry and backups. [Personal Data Protection Act, section 14](https://www.pdpc.go.tz/media/media/THE_PERSONAL_DATA_PROTECTION_ACT.pdf) · [PDPC registration](https://pdpc.go.tz/services/registration/) · [PDPC cross-border transfer permit](https://pdpc.go.tz/services/cross-border-data-transfer-permit/)
+- Complete a data-flow map and PDPC/legal review. Names, phone numbers, job history and payment details are personal data. The Act states that a person shall not collect/process personal data without registration as controller or processor; confirm the applicable registration/role for Mishe and participating businesses. Assess cross-border transfers for hosting, Ngamia prompts, email/SMS vendors, logs, telemetry and backups. [Personal Data Protection Act, section 14](https://www.pdpc.go.tz/media/media/THE_PERSONAL_DATA_PROTECTION_ACT.pdf) · [PDPC registration](https://pdpc.go.tz/services/registration/) · [PDPC cross-border transfer permit](https://pdpc.go.tz/services/cross-border-data-transfer-permit/)
 
 ### Phase 2 — Core operations for the selected vertical
 
@@ -150,7 +150,7 @@ Initial workflow examples:
 - Add cash close by staff/shift and reconciliation difference; measure collections against jobs and expected cash. Exports must reconcile to source records.
 - Keep expenses separate from payments; capture incurred date, paid date, category, payee, branch, receipt evidence, and actor. Call “collections minus recorded expenses” a cash movement summary, not profit.
 - Keep a business invoice distinct from an approved fiscal receipt. Confirm each pilot's current TRA obligations and the route/qualification for an EFD/VFD integration before promising fiscal output. [TRA EFD Receipt API](https://virtual.tra.go.tz/efdmsRctApi/)
-- For payment collection and reconciliation, integrate a licensed operator/PSP and use signed webhooks, idempotency, transaction lookup, refunds, settlement reports and exception queues. Keep settlement directed to the merchant until BoT/legal review confirms what Simamia itself may do; BoT regulates payment system services/products. [Bank of Tanzania payment-system laws and regulations](https://bot.go.tz/PaymentSystem/regulations?lang=en)
+- For payment collection and reconciliation, integrate a licensed operator/PSP and use signed webhooks, idempotency, transaction lookup, refunds, settlement reports and exception queues. Keep settlement directed to the merchant until BoT/legal review confirms what Mishe itself may do; BoT regulates payment system services/products. [Bank of Tanzania payment-system laws and regulations](https://bot.go.tz/PaymentSystem/regulations?lang=en)
 
 ### Phase 4 — Reminders and SendAfrica demand loop
 
@@ -208,11 +208,11 @@ Suggested continue/change/stop rules (hypotheses to set with the team before pil
 
 Report denominators and cohort dates. Ten owners can reject a weak hypothesis or expose obvious workflow gaps, but cannot establish national market size or stable retention rates.
 
-## 10. Current Simamia readiness
+## 10. Current Mishe readiness
 
 Current code already sketches the shared shell: orders/customers/services/team, status workflow, schedule, payment balances, invoice printing, debts calculated from balances, expenses, reports, draft messaging, local helper and provider links. The API currently stores JSON records for supported resource collections in SQLite and the UI connects directly to it when reachable.
 
-The active page remains a single large client component in `src/app/simamia.tsx`; data types have one order with one service and an aggregate `paid` amount; the Go API is an unauthenticated generic record store; payment events are not immutable; there is no workspace/tenant isolation, real sender/payment/AI provider execution, robust offline sync, or production import/backup lifecycle. Clerk and template provider code exist elsewhere in the starter, but this app's active root layout does not install ClerkProvider and the current root route has no auth boundary. Therefore the present app can demonstrate a generic service-job concept, but should not claim it is ready to onboard real businesses across all listed segments.
+The active page remains a single large client component in `src/app/mishe.tsx`; data types have one order with one service and an aggregate `paid` amount; the Go API is an unauthenticated generic record store; payment events are not immutable; there is no workspace/tenant isolation, real sender/payment/AI provider execution, robust offline sync, or production import/backup lifecycle. Clerk and template provider code exist elsewhere in the starter, but this app's active root layout does not install ClerkProvider and the current root route has no auth boundary. Therefore the present app can demonstrate a generic service-job concept, but should not claim it is ready to onboard real businesses across all listed segments.
 
 Recommended order of work: validate the segment → activate auth/workspaces and safe API boundaries → formalize shared job/payment/expense domain → ship one pilot template → prove onboarding, retention and payment/message economics → extend templates based on measured overlap.
 

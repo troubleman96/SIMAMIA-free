@@ -1,4 +1,4 @@
-# Simamia Management Guide
+# Mishe Management Guide
 
 **Audience:** service-business owners and supervisors in Tanzania
 **Language:** simple Kiswahili by default; English is available in the language switcher
@@ -6,7 +6,7 @@
 
 ## 1. What this MVP is for
 
-Simamia is a service-operations workspace for small teams that take requests, schedule work, assign staff, collect payments and keep customers informed. It is intentionally service-agnostic: examples include laundry, cleaning, repairs, maintenance, salons and other appointment/job-based businesses.
+Mishe is a service-operations workspace for small teams that take requests, schedule work, assign staff, collect payments and keep customers informed. It is intentionally service-agnostic: examples include laundry, cleaning, repairs, maintenance, salons and other appointment/job-based businesses.
 
 The app currently includes **orders/jobs, customers, services, schedule, team, payments, debts, expenses, invoices, reports, message drafts, an assistant page, integrations, API reference and settings**. Camel Accounts handles phone/password sign-in; new users then create a business profile and choose one of eight workflow templates. The templates configure labels, statuses and intake fields. The authenticated Go API scopes records to the Camel subject, but does not yet implement shared business memberships or staff permissions. Provider screens remain unconnected.
 
@@ -23,7 +23,7 @@ The app currently includes **orders/jobs, customers, services, schedule, team, p
 ## 3. Tanzania operating context
 
 - The Bank of Tanzania's **National Payment Systems Annual Report 2025** describes mobile money as dominating retail payments. It reports 75.78 million active mobile-money subscriptions and 1.98 million agents in 2025. Subscriptions are not the same measure as unique individuals. The product therefore records common wallet methods such as M-Pesa, Mixx by Yas, Airtel Money and HaloPesa, alongside cash and bank transfer, without assuming that a wallet payment has been verified.
-- The Tanzania Revenue Authority (TRA) says sellers in scope are obliged to issue a receipt or invoice for each sale/service and describes Electronic Fiscal Devices. Applicability depends on the taxpayer and current rules. **An order record, payment entry or receipt flag in Simamia is not a TRA fiscal receipt and is not tax advice.** Confirm the business's obligations with TRA or a tax professional and use an approved EFD/VFD process where required.
+- The Tanzania Revenue Authority (TRA) says sellers in scope are obliged to issue a receipt or invoice for each sale/service and describes Electronic Fiscal Devices. Applicability depends on the taxpayer and current rules. **An order record, payment entry or receipt flag in Mishe is not a TRA fiscal receipt and is not tax advice.** Confirm the business's obligations with TRA or a tax professional and use an approved EFD/VFD process where required.
 - Customer names, phone numbers, email addresses and service history are personal data. Tanzania's Personal Data Protection Act 2022 and the Personal Data Protection Commission (PDPC) should inform a real deployment's notices, access control, retention, data-subject handling, processor contracts and any applicable registration duties. Use synthetic identities in local development. The current deployment is not yet ready for production personal data.
 - Dar es Salaam/EAT (UTC+3) and TZS are the defaults. Multi-region, Zanzibar-specific, VAT/tax calculation, fiscal-device integration, mobile-money reconciliation, stock/parts and low-connectivity offline sync require local operational validation before production.
 
@@ -62,7 +62,7 @@ Camel Accounts authenticates users and the API scopes data to each authenticated
 
 The frontend requires Camel Accounts sign-in. The dashboard calls the Go API when available and falls back to browser-local demo data if the API cannot be reached. Browser-local data is not a shared or backed-up workspace.
 
-The Go API in `api/` validates bearer tokens through Camel Accounts userinfo and scopes records by account subject. Run it using `cd api && go run .`; SQLite data persists across restarts. Configure `CAMEL_ACCOUNTS_URL` for the API and `NEXT_PUBLIC_SIMAMIA_API_URL` for the frontend. Expenses are separate records; order payment amounts remain aggregates, not an immutable payment event ledger. The API has no business membership model, staff roles, backups, rate limit, payment gateway or message delivery. Apply the Simamia OAuth client migration in Camel Accounts before account signup is enabled.
+The Go API in `api/` validates bearer tokens through Camel Accounts userinfo and scopes records by account subject. Run it using `cd api && go run .`; SQLite data persists across restarts. Configure `CAMEL_ACCOUNTS_URL` for the API and `NEXT_PUBLIC_MISHE_API_URL` for the frontend. Expenses are separate records; order payment amounts remain aggregates, not an immutable payment event ledger. The API has no business membership model, staff roles, backups, rate limit, payment gateway or message delivery. Apply the Mishe OAuth client migration in Camel Accounts before account signup is enabled.
 
 ## 7. Production readiness checklist
 

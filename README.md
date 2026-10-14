@@ -1,6 +1,6 @@
-# Simamia
+# Mishe
 
-Simamia is a Swahili-first business operations platform for small service and retail businesses. It combines a public website, a browser app, and a Go API in one repository. Owners sign in with Camel Accounts, create a Simamia business profile, and choose a workflow template.
+Mishe is a Swahili-first business operations platform for small service and retail businesses. It combines a public website, a browser app, and a Go API in one repository. Owners sign in with Camel Accounts, create a Mishe business profile, and choose a workflow template.
 
 ## Repository map
 
@@ -8,10 +8,10 @@ Simamia is a Swahili-first business operations platform for small service and re
 | --- | --- |
 | `src/` | Next.js 16 app: dashboard, Camel Accounts sign-in, business onboarding, and product UI |
 | `src/features/onboarding/business-templates.ts` | Eight workflow templates and their labels, statuses, intake fields, and sample services |
-| `landing/` | Public `simamia.online` website (plain HTML, CSS, and JavaScript) |
+| `landing/` | Public `mishe.online` website (plain HTML, CSS, and JavaScript) |
 | `api/` | Go HTTP API, SQLite persistence, and OpenAPI contract |
-| `admin/` | Private Next.js operator console for tenant data, usage, and audit history (`admin.simamia.online`) |
-| `docs-site/` | Next.js API documentation site (`docs.simamia.online`) |
+| `admin/` | Private Next.js operator console for tenant data, usage, and audit history (`admin.mishe.online`) |
+| `docs-site/` | Next.js API documentation site (`docs.mishe.online`) |
 | `deploy/` | Caddy and host-Nginx configuration for production routing |
 | `compose.yaml` | Local/standalone deployment for landing, app, API, and Caddy |
 | `docs/` | Product notes, API examples, integration research, and deployment procedures |
@@ -33,14 +33,14 @@ Templates currently tailor labels, statuses, intake fields, and example services
 
 ## Current product boundaries
 
-- Sign-in is handled by Camel Accounts. Simamia stores its own business profile after authentication.
+- Sign-in is handled by Camel Accounts. Mishe stores its own business profile after authentication.
 - The Go API validates Camel Accounts access tokens and scopes stored records to the token subject.
-- The API persists businesses, orders, customers, services, team records, and expenses in SQLite. Its default local database is `api/data/simamia.db`.
+- The API persists businesses, orders, customers, services, team records, and expenses in SQLite. Its default local database is `api/data/mishe.db`.
 - Some dashboard data can fall back to fabricated browser-local demo records when the API is unavailable. Do not treat demo values as real business data.
-- Payment records are operational ledger entries derived from work records. Simamia does not process a mobile-money transaction or issue a TRA fiscal receipt.
+- Payment records are operational ledger entries derived from work records. Mishe does not process a mobile-money transaction or issue a TRA fiscal receipt.
 - SMS, email, AI, and payment-provider connections are not fully implemented. Read [`docs/integrations.md`](docs/integrations.md) for current status and provider notes.
 - SQLite is intended for a single API instance. Production still needs tested backups, shared-business roles, and operational monitoring before scaling out.
-- The private `admin.simamia.online` console administers Simamia records and tenants inferred from record ownership. It does not administer Camel Accounts credentials or identities; see [`docs/admin-console.md`](docs/admin-console.md).
+- The private `admin.mishe.online` console administers Mishe records and tenants inferred from record ownership. It does not administer Camel Accounts credentials or identities; see [`docs/admin-console.md`](docs/admin-console.md).
 
 ## Requirements
 
@@ -81,8 +81,8 @@ go run .
 
 ```bash
 NEXT_PUBLIC_CAMEL_ACCOUNTS_URL=https://accounts.camelcreatives.com \
-NEXT_PUBLIC_CAMEL_ACCOUNTS_CLIENT_ID=simamia-35sj96 \
-NEXT_PUBLIC_SIMAMIA_API_URL=http://localhost:8080/api/v1 \
+NEXT_PUBLIC_CAMEL_ACCOUNTS_CLIENT_ID=mishe-35sj96 \
+NEXT_PUBLIC_MISHE_API_URL=http://localhost:8080/api/v1 \
 bun run dev
 ```
 
@@ -98,16 +98,16 @@ bun run dev
 **4. Admin console** — configure a local operator password and matching API key for the API and admin server, then open `http://localhost:3001` from the admin workspace:
 
 ```bash
-SIMAMIA_API_URL=http://localhost:8080/api/v1 \
-SIMAMIA_ADMIN_EMAIL=admin@example.com \
-SIMAMIA_ADMIN_API_TOKEN=local-development-token-at-least-32-chars \
-SIMAMIA_ADMIN_PASSWORD='local-private-password' \
-SIMAMIA_ADMIN_SESSION_SECRET='another-local-secret-at-least-32-chars' \
+MISHE_API_URL=http://localhost:8080/api/v1 \
+MISHE_ADMIN_EMAIL=admin@example.com \
+MISHE_ADMIN_API_TOKEN=local-development-token-at-least-32-chars \
+MISHE_ADMIN_PASSWORD='local-private-password' \
+MISHE_ADMIN_SESSION_SECRET='another-local-secret-at-least-32-chars' \
 ADMIN_APP_ORIGIN=http://localhost:3001 \
 bun --cwd admin run dev
 ```
 
-Start the API with `SIMAMIA_ADMIN_TOKEN` set to the same value as `SIMAMIA_ADMIN_API_TOKEN`. Keep local values separate from production secrets.
+Start the API with `MISHE_ADMIN_TOKEN` set to the same value as `MISHE_ADMIN_API_TOKEN`. Keep local values separate from production secrets.
 
 Or run the services together in containers:
 
@@ -121,7 +121,7 @@ The standalone Compose configuration expects DNS to point to this machine and bi
 ## Environment configuration
 
 - `.env.server.example` lists public app build settings and API runtime settings for Compose. Copy it to `.env` for a server deployment and review every value before building.
-- `env.example.txt` is the original dashboard starter's broader environment reference. Clerk variables there are legacy template settings; Simamia sign-in uses Camel Accounts.
+- `env.example.txt` is the original dashboard starter's broader environment reference. Clerk variables there are legacy template settings; Mishe sign-in uses Camel Accounts.
 - Never commit `.env`, `.env.local`, access tokens, client secrets, or production database files.
 
 ## Build and quality commands

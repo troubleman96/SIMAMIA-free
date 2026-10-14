@@ -1,29 +1,29 @@
-# Simamia Service Platform Upgrade Plan
+# Mishe Service Platform Upgrade Plan
 
-**Purpose:** turn the current Simamia preview into a reliable, shared service-operations product, using Shoe Cleaners as the first detailed vertical workflow and borrowing proven patterns from SendAfrica and ZiadaPOS.
+**Purpose:** turn the current Mishe preview into a reliable, shared service-operations product, using Shoe Cleaners as the first detailed vertical workflow and borrowing proven patterns from SendAfrica and ZiadaPOS.
 
 **Research date:** 11 October 2026. Provider contracts, pricing, model catalogs, account rules, and local compliance requirements must be rechecked before implementation and launch.
 
 ## 1. Product direction
 
-Simamia should become a multi-business service-management platform. Each business can configure its services and operating rules, while using a consistent core for customers, work orders, scheduling, staff, payments, expenses, communications, reports, and AI assistance.
+Mishe should become a multi-business service-management platform. Each business can configure its services and operating rules, while using a consistent core for customers, work orders, scheduling, staff, payments, expenses, communications, reports, and AI assistance.
 
 Shoe Cleaners is a reference workflow and likely first production business. Preserve the useful domain behavior—multiple items per order, condition capture, tags, price snapshots, deposits, item history, payment attribution, and pickup—without making every service business shoe-specific. Use configurable work-item fields, resource/tag tracking, and workflow stages so a laundry, repair shop, salon, or cleaning team can use its own job details.
 
-Success means a team can use Simamia as its shared source of truth throughout an ordinary workday: record a request once, know who owns the next action, know what is due, account for money without confusing sales with cash, communicate reliably, and inspect the evidence behind every report.
+Success means a team can use Mishe as its shared source of truth throughout an ordinary workday: record a request once, know who owns the next action, know what is due, account for money without confusing sales with cash, communicate reliably, and inspect the evidence behind every report.
 
 ## 2. What exists today
 
-### Simamia / Simamia
+### Mishe / Mishe
 
-- The public app is a Next.js page with a large client-side implementation in `src/app/simamia.tsx`.
+- The public app is a Next.js page with a large client-side implementation in `src/app/mishe.tsx`.
 - The preview includes overview, orders, customers, services, schedule, team, payments, reports, messages, assistant, integrations, API information, and settings.
 - Editable records are synthetic and stored in that browser's `localStorage`.
 - `api/` is a separate Go reference API with generic in-memory tables. It seeds sample records and resets on process restart.
 - The browser checks the Go API health endpoint but does not load or mutate shop records through it.
 - There is no login, business boundary, shared durable datastore, backup path, or enforced user permission model in this preview.
 
-Relevant sources: `src/app/simamia.tsx`, `api/main.go`, `README.md`, `docs/management-guide.md`, and `docs/design-reference.md`.
+Relevant sources: `src/app/mishe.tsx`, `api/main.go`, `README.md`, `docs/management-guide.md`, and `docs/design-reference.md`.
 
 ### Shoe Cleaners TZ
 
@@ -41,9 +41,9 @@ Relevant references in `ZiadaPos project`: `api/README.md`, `api/docs/business-w
 
 ## 3. Architecture recommendation
 
-### Keep one Simamia product backend
+### Keep one Mishe product backend
 
-Evolve the existing Go API and make it the source of truth for Simamia. Do not have the Next.js app write separate local records, and do not merge a second Django backend into Simamia. Port business rules and selected UX patterns from Shoe Cleaners and ZiadaPOS into the Go service.
+Evolve the existing Go API and make it the source of truth for Mishe. Do not have the Next.js app write separate local records, and do not merge a second Django backend into Mishe. Port business rules and selected UX patterns from Shoe Cleaners and ZiadaPOS into the Go service.
 
 Adopt:
 
@@ -65,7 +65,7 @@ Define this before production data exists:
 - Staff permissions are action-based and enforced in the API. At minimum: view/create/edit/archive orders; assign/reassign work; record/adjust payments; manage expenses; send messages; view/export reports; manage catalog, locations, members, settings, and integrations.
 - Keep an append-only audit trail for important changes, permission changes, exports, provider sends, payment corrections, status changes, and integration credential actions.
 
-Use ZiadaPOS as a reference for organization/store scoping and transactional writes, and Shoe Cleaners for area/action permissions. Simamia should have its own coherent authorization model rather than copying either project's role strings wholesale.
+Use ZiadaPOS as a reference for organization/store scoping and transactional writes, and Shoe Cleaners for area/action permissions. Mishe should have its own coherent authorization model rather than copying either project's role strings wholesale.
 
 ## 4. Domain and workflow to build
 
@@ -128,7 +128,7 @@ Build core work surfaces first and expose only pages permitted for the signed-in
 - **AI assistant** `/dashboard/assistant`: persistent private threads, source/date context, suggested operational questions, answer citations, safe action drafts.
 - **Account/security** `/dashboard/profile`, `/dashboard/security`: sessions, password/MFA policy, language, local time zone, notifications.
 
-Existing components/pages should be reorganized into feature modules during implementation. Avoid an ever-growing single `simamia.tsx` page implementation.
+Existing components/pages should be reorganized into feature modules during implementation. Avoid an ever-growing single `mishe.tsx` page implementation.
 
 ## 6. Detailed reporting specification
 
@@ -189,7 +189,7 @@ Reports must be computed on the server from persisted source records, scoped to 
 
 ## 7. SendAfrica SMS plan and UX
 
-Use the SendAfrica webapp as the interaction reference for compose, request-sender-ID, sender list/detail, message logs, filters, pagination, export, and per-message detail. Rebuild these patterns inside Simamia's own design system and tenant context; do not embed SendAfrica dashboard credentials or treat its UI/API user as a Simamia business identity.
+Use the SendAfrica webapp as the interaction reference for compose, request-sender-ID, sender list/detail, message logs, filters, pagination, export, and per-message detail. Rebuild these patterns inside Mishe's own design system and tenant context; do not embed SendAfrica dashboard credentials or treat its UI/API user as a Mishe business identity.
 
 ### Messaging surfaces
 
@@ -202,11 +202,11 @@ Use the SendAfrica webapp as the interaction reference for compose, request-send
 
 ### Integration contract and reliability
 
-- SendAfrica's current public REST docs use `https://api.sendafrica.online/v1`, an `X-API-Key`, `POST /v1/sms/` and `POST /v1/sms/bulk`; public docs describe up to 1,000 recipients per bulk request and per-recipient partial outcomes. The SendAfrica app/API repos have additional product-account workflows; confirm which API credential and sender-ID ownership path Simamia can use before designing final onboarding.
+- SendAfrica's current public REST docs use `https://api.sendafrica.online/v1`, an `X-API-Key`, `POST /v1/sms/` and `POST /v1/sms/bulk`; public docs describe up to 1,000 recipients per bulk request and per-recipient partial outcomes. The SendAfrica app/API repos have additional product-account workflows; confirm which API credential and sender-ID ownership path Mishe can use before designing final onboarding.
 - Treat successful submission as **accepted by provider**, not delivered. Persist the returned message ID and reconcile signed delivery events. Verify the raw-body HMAC signature, deduplicate callbacks, accept out-of-order/repeated events, and acknowledge only after durable processing.
 - Use idempotency for sends and webhooks. Retry transient provider/network/rate-limit errors with bounded backoff; do not retry terminal failures blindly. Record `delivery_unknown` when provider state cannot be established.
 - Credentials and webhook secrets are stored only server-side in a managed secret store/encrypted integration store. Never expose them in client bundles, browser storage, logs, or assistant context.
-- Persist Simamia's own communication event linked to business, location, customer, job, actor and template. Provider logs alone are not the shop's communication history.
+- Persist Mishe's own communication event linked to business, location, customer, job, actor and template. Provider logs alone are not the shop's communication history.
 - Require consent/purpose and honor opt-outs; preview the audience and cost before bulk send. Keep ordinary order-state writes independent from provider success.
 
 ### Credential/commercial decision gate
@@ -214,7 +214,7 @@ Use the SendAfrica webapp as the interaction reference for compose, request-send
 Before integration, choose and document one model:
 
 - **Business connects its own SendAfrica account/key:** clean account/sender ownership and billing, but requires secure key management, connection recovery and clear instructions.
-- **Simamia operates a platform SendAfrica account:** smoother onboarding, but requires provider approval and commercial agreement for tenant segmentation, sender ownership, wallet funding, credit sub-ledgers, usage allocation, abuse control and customer support.
+- **Mishe operates a platform SendAfrica account:** smoother onboarding, but requires provider approval and commercial agreement for tenant segmentation, sender ownership, wallet funding, credit sub-ledgers, usage allocation, abuse control and customer support.
 
 Do not begin paid production dispatch until this choice, the allowed sender-ID application process, consent policy and message-spend cap are approved.
 
@@ -227,7 +227,7 @@ Keep MailAfrica calls in the Go backend. Use the current API reference and OpenA
 - Preview rendered HTML and text, validate required variables, escape customer-provided values, and send sandbox test messages.
 - Store template version, recipient, provider message ID, submitted/sent-or-failed state, charge, actor, timestamps and error. Current provider docs describe outbound status as `sent` or `failed`; `sent` is upstream acceptance, and delivery/bounce analytics should only be added if the provider documents a source for them.
 - Respect the documented 2 messages/sec per-user rate limit, chunk batch sends per current API limits, handle insufficient balance/rate-limit/suppression errors, and alert before wallet depletion. Public docs currently state 5 TZS per message/recipient and a minimum 2,000 TZS top-up; recheck price/limits before launch.
-- Verify custom sending domains and SPF/DKIM/DMARC before using them. Keep top-up workflows in provider-owned checkout; do not collect wallet/card credentials in Simamia.
+- Verify custom sending domains and SPF/DKIM/DMARC before using them. Keep top-up workflows in provider-owned checkout; do not collect wallet/card credentials in Mishe.
 - MailAfrica also documents inbound addresses, signed webhooks, templates, sandbox, compliance profile and audit export. Treat shared customer inbox/inbound processing as a later scope after outbound service notifications are stable.
 
 ## 9. Ngamia assistant and AI intelligence
@@ -256,7 +256,7 @@ Make `/dashboard/assistant` a real, useful, safe work surface rather than a demo
 ### Phase 0 — Product/domain and architecture lock
 
 - Confirm target business types, first live workflows, single-business vs multi-business onboarding, branch expectations, and whether Shoe Cleaners is the first migrated tenant.
-- Define Go as the Simamia API, database target, tenant/location model, roles/permissions, reporting definitions, provider-account ownership model, deployment/support ownership, and migration scope.
+- Define Go as the Mishe API, database target, tenant/location model, roles/permissions, reporting definitions, provider-account ownership model, deployment/support ownership, and migration scope.
 - Convert this plan into reviewed domain contracts and page acceptance criteria. Keep provider credentials unconfigured until security and commercial decisions are settled.
 
 **Exit:** approved entity relationship/domain map, endpoint boundary, permissions matrix, migration approach, and MVP acceptance checklist.
@@ -327,10 +327,10 @@ Make `/dashboard/assistant` a real, useful, safe work surface rather than a demo
 
 These are plan gates, not reasons to block foundational work:
 
-1. Is Simamia first a single shop platform or a self-service product for many businesses from day one?
+1. Is Mishe first a single shop platform or a self-service product for many businesses from day one?
 2. Which business is the pilot, and should Shoe Cleaners records be imported? Who verifies historical balances and service details?
 3. What kinds of services need appointments and staff capacity versus queue/due-date scheduling?
-4. Who owns SendAfrica/MailAfrica credentials and wallet spending: each business or Simamia? What is the approval/billing model for sender IDs and provider credits?
+4. Who owns SendAfrica/MailAfrica credentials and wallet spending: each business or Mishe? What is the approval/billing model for sender IDs and provider credits?
 5. Which staff roles/actions are needed for first pilot? Who may issue refunds, export personal data, or send bulk messages?
 6. What production database, hosting, backups, email domain, support and incident response are available?
 7. What retention, consent, customer deletion/export and cross-border AI/provider rules are approved for the business?
@@ -338,9 +338,9 @@ These are plan gates, not reasons to block foundational work:
 
 ## 13. Source references
 
-### Simamia
+### Mishe
 
-- `README.md`, `src/app/simamia.tsx`, `api/main.go`, `docs/management-guide.md`, `docs/integrations.md`, `docs/provider-research.md`.
+- `README.md`, `src/app/mishe.tsx`, `api/main.go`, `docs/management-guide.md`, `docs/integrations.md`, `docs/provider-research.md`.
 
 ### Shoe Cleaners TZ
 
@@ -361,12 +361,12 @@ These are plan gates, not reasons to block foundational work:
 
 ### MailAfrica
 
-- Simamia's existing reference notes: `docs/provider-research.md` and `docs/integrations.md`.
+- Mishe's existing reference notes: `docs/provider-research.md` and `docs/integrations.md`.
 - Official docs/OpenAPI: [Introduction](https://docs.mailafrica.online/), [sender IDs](https://docs.mailafrica.online/sender-ids), [outbound email](https://docs.mailafrica.online/outbound), [templates](https://docs.mailafrica.online/templates), [webhooks](https://docs.mailafrica.online/webhooks), [balance and top-up](https://docs.mailafrica.online/balance), [pricing and limits](https://docs.mailafrica.online/pricing), [sandbox](https://docs.mailafrica.online/sandbox), [compliance](https://docs.mailafrica.online/compliance), [OpenAPI schema](https://docs.mailafrica.online/openapi.json).
 
 ### Ngamia
 
-- Simamia's existing reference notes: `docs/provider-research.md` and `docs/integrations.md`.
+- Mishe's existing reference notes: `docs/provider-research.md` and `docs/integrations.md`.
 - Official docs: [Introduction](https://docs.ngamia.cc/introduction), [Quickstart](https://docs.ngamia.cc/quickstart), [Models](https://docs.ngamia.cc/models), [Chat Completions](https://docs.ngamia.cc/chat-completions), [Security and data handling](https://docs.ngamia.cc/security), [Rate limits](https://docs.ngamia.cc/rate-limits), [Billing and credits](https://docs.ngamia.cc/billing).
 
 ### ZiadaPOS

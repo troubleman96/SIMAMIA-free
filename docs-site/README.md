@@ -1,6 +1,6 @@
-# Simamia API Docs
+# Mishe API Docs
 
-An independent documentation website for the Simamia Go API, built with Next.js App Router and Nextra 4. Documentation pages are Markdown/MDX and use the Nextra docs theme for navigation, search, code blocks, and Mermaid diagrams.
+An independent documentation website for the Mishe Go API, built with Next.js App Router and Nextra 4. Documentation pages are Markdown/MDX and use the Nextra docs theme for navigation, search, code blocks, and Mermaid diagrams.
 
 ## Requirements
 
@@ -14,7 +14,7 @@ bun install
 bun run dev
 ```
 
-Open `http://localhost:3000`. This docs site only renders documentation; it does not call the Simamia API or require an API token.
+Open `http://localhost:3000`. This docs site only renders documentation; it does not call the Mishe API or require an API token.
 
 ## Build for production
 
@@ -41,11 +41,11 @@ Use fenced `mermaid` blocks for diagrams. Nextra 4 renders Mermaid blocks throug
 
 ## Keep API docs accurate
 
-The source of truth for route behavior is the Go API in the Simamia repo, especially `api/main.go` and `api/openapi.yaml`. When changing an endpoint, update the matching page in this repo and compare:
+The source of truth for route behavior is the Go API in the Mishe repo, especially `api/main.go` and `api/openapi.yaml`. When changing an endpoint, update the matching page in this repo and compare:
 
 1. Supported method/path and auth requirement.
 2. Required properties, defaults, and validation.
 3. Owner scoping and response/error envelopes.
 4. Example requests and the result of derived behavior.
 
-Current deployment notes: `https://github.com/troubleman96/SIMAMIA/blob/main/docs/deployment.md`.
+Current deployment notes: `https://github.com/troubleman96/MISHE/blob/main/docs/deployment.md`.

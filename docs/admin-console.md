@@ -1,20 +1,20 @@
-# Simamia Admin Console
+# Mishe Admin Console
 
-The private operator console runs at `https://admin.simamia.online`. It provides a platform overview, inferred Simamia tenant list, tenant-scoped CRUD for every persisted business resource, SQLite usage metrics, and a durable audit trail.
+The private operator console runs at `https://admin.mishe.online`. It provides a platform overview, inferred Mishe tenant list, tenant-scoped CRUD for every persisted business resource, SQLite usage metrics, and a durable audit trail.
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-  Operator[Operator browser] -->|HTTPS, HttpOnly signed session| Admin[Next.js admin.simamia.online]
+  Operator[Operator browser] -->|HTTPS, HttpOnly signed session| Admin[Next.js admin.mishe.online]
   Admin -->|Same-origin /api/admin/proxy; session checked| Proxy[Admin server proxy]
-  Proxy -->|Private Compose network + X-Simamia-Admin-Key| API[Go API]
+  Proxy -->|Private Compose network + X-Mishe-Admin-Key| API[Go API]
   API -->|read / validate / write| SQLite[(SQLite records)]
   API -->|mutation metadata only| Audit[(SQLite admin_audit)]
   Camel[Camel Accounts] -. identity subject on records .-> API
 ```
 
-The admin app has a separate operator email and password; it does not use Camel Accounts login and it does not expose the API key to browser code. Configure `SIMAMIA_ADMIN_EMAIL` and `SIMAMIA_ADMIN_PASSWORD` on the server. Camel Accounts remains the authority for user credentials, Google connections, and identity lifecycle. Simamia currently derives tenant accounts from `owner_sub` values present in business records; it has no first-class account/membership table.
+The admin app has a separate operator email and password; it does not use Camel Accounts login and it does not expose the API key to browser code. Configure `MISHE_ADMIN_EMAIL` and `MISHE_ADMIN_PASSWORD` on the server. Camel Accounts remains the authority for user credentials, Google connections, and identity lifecycle. Mishe currently derives tenant accounts from `owner_sub` values present in business records; it has no first-class account/membership table.
 
 ## Admin screens
 
@@ -29,10 +29,10 @@ Payments are derived from orders and cannot be edited directly. There is no hard
 
 ## Endpoints
 
-All endpoints below are relative to `https://api.simamia.online/api/v1`. They require:
+All endpoints below are relative to `https://api.mishe.online/api/v1`. They require:
 
 ```http
-X-Simamia-Admin-Key: <SIMAMIA_ADMIN_API_TOKEN>
+X-Mishe-Admin-Key: <MISHE_ADMIN_API_TOKEN>
 ```
 
 Never call these endpoints with the admin key from browser JavaScript. The admin Next.js proxy adds it after checking the signed operator session. Lists accept `page` and `page_size` (default 50, maximum 200); tenant resource lists also accept case-insensitive `q`.
@@ -53,29 +53,29 @@ Never call these endpoints with the admin key from browser JavaScript. The admin
 ### Example: read the overview
 
 ```sh
-curl -H "X-Simamia-Admin-Key: $SIMAMIA_ADMIN_API_TOKEN" \
-  https://api.simamia.online/api/v1/admin/overview
+curl -H "X-Mishe-Admin-Key: $MISHE_ADMIN_API_TOKEN" \
+  https://api.mishe.online/api/v1/admin/overview
 ```
 
 ### Example: list customer records for a tenant
 
 ```sh
 curl -G \
-  -H "X-Simamia-Admin-Key: $SIMAMIA_ADMIN_API_TOKEN" \
+  -H "X-Mishe-Admin-Key: $MISHE_ADMIN_API_TOKEN" \
   --data-urlencode 'q=asha' \
   --data-urlencode 'page=1' \
   --data-urlencode 'page_size=50' \
-  "https://api.simamia.online/api/v1/admin/accounts/$OWNER_SUB/customers"
+  "https://api.mishe.online/api/v1/admin/accounts/$OWNER_SUB/customers"
 ```
 
 ### Example: add an expense
 
 ```sh
 curl -X POST \
-  -H "X-Simamia-Admin-Key: $SIMAMIA_ADMIN_API_TOKEN" \
+  -H "X-Mishe-Admin-Key: $MISHE_ADMIN_API_TOKEN" \
   -H 'Content-Type: application/json' \
   --data '{"description":"Shop supplies","category":"Supplies","amount":12500,"date":"2026-10-11","currency":"TZS"}' \
-  "https://api.simamia.online/api/v1/admin/accounts/$OWNER_SUB/expenses"
+  "https://api.mishe.online/api/v1/admin/accounts/$OWNER_SUB/expenses"
 ```
 
 ## Configure and run
@@ -83,12 +83,12 @@ curl -X POST \
 Set these server-side variables in `.env` before starting Compose. Use different random values for all three secrets. Do not put them in `NEXT_PUBLIC_*` variables or commit `.env`.
 
 ```dotenv
-SIMAMIA_ADMIN_EMAIL=<private operator email>
-SIMAMIA_ADMIN_PASSWORD=<long private operator password>
-SIMAMIA_ADMIN_API_TOKEN=<at least 32 random characters>
-SIMAMIA_ADMIN_SESSION_SECRET=<different random secret, at least 32 characters>
-SIMAMIA_ADMIN_ACTOR=platform-operator
-ADMIN_APP_ORIGIN=https://admin.simamia.online
+MISHE_ADMIN_EMAIL=<private operator email>
+MISHE_ADMIN_PASSWORD=<long private operator password>
+MISHE_ADMIN_API_TOKEN=<at least 32 random characters>
+MISHE_ADMIN_SESSION_SECRET=<different random secret, at least 32 characters>
+MISHE_ADMIN_ACTOR=platform-operator
+ADMIN_APP_ORIGIN=https://admin.mishe.online
 ```
 
 Generate independent values with:
@@ -103,17 +103,17 @@ Then build and start the admin service with the same Compose command used by the
 docker compose up -d --build admin api caddy
 ```
 
-If host Nginx owns ports 80/443, use `deploy/compose.vps.yaml` and install `deploy/nginx-simamia.conf`; that proxy sends `admin.simamia.online` to loopback port `4176`. Obtain a TLS certificate for the admin hostname with the same Certbot setup as the other Simamia hosts.
+If host Nginx owns ports 80/443, use `deploy/compose.vps.yaml` and install `deploy/nginx-mishe.conf`; that proxy sends `admin.mishe.online` to loopback port `4176`. Obtain a TLS certificate for the admin hostname with the same Certbot setup as the other Mishe hosts.
 
-For local development, start the admin Next app on port 3001 from `admin/`. Provide `SIMAMIA_API_URL=http://localhost:8080/api/v1`, `SIMAMIA_ADMIN_EMAIL`, `SIMAMIA_ADMIN_API_TOKEN` (matching API's `SIMAMIA_ADMIN_TOKEN`), `SIMAMIA_ADMIN_PASSWORD`, `SIMAMIA_ADMIN_SESSION_SECRET`, and `ADMIN_APP_ORIGIN=http://localhost:3001`. The Go API needs a persistent SQLite database; its admin routes return `ADMIN_REQUIRES_DATABASE` when using the in-memory preview store.
+For local development, start the admin Next app on port 3001 from `admin/`. Provide `MISHE_API_URL=http://localhost:8080/api/v1`, `MISHE_ADMIN_EMAIL`, `MISHE_ADMIN_API_TOKEN` (matching API's `MISHE_ADMIN_TOKEN`), `MISHE_ADMIN_PASSWORD`, `MISHE_ADMIN_SESSION_SECRET`, and `ADMIN_APP_ORIGIN=http://localhost:3001`. The Go API needs a persistent SQLite database; its admin routes return `ADMIN_REQUIRES_DATABASE` when using the in-memory preview store.
 
 ## Security and operating limits
 
-- The Go API returns `ADMIN_DISABLED` unless `SIMAMIA_ADMIN_TOKEN` has at least 32 characters. A wrong key returns `ADMIN_UNAUTHORIZED`.
+- The Go API returns `ADMIN_DISABLED` unless `MISHE_ADMIN_TOKEN` has at least 32 characters. A wrong key returns `ADMIN_UNAUTHORIZED`.
 - The console session is an eight-hour HMAC-signed, HttpOnly, SameSite=Strict cookie. Production sets `Secure`.
 - Login and mutation requests enforce the configured exact admin origin. The login process applies an in-memory per-IP retry throttle; restarting the admin container clears this short-lived counter.
-- The API key is a shared machine credential. Audit entries use `SIMAMIA_ADMIN_ACTOR` as a shared actor label, not a distinct operator identity. Do not share the password if attributable individual audit records are required.
+- The API key is a shared machine credential. Audit entries use `MISHE_ADMIN_ACTOR` as a shared actor label, not a distinct operator identity. Do not share the password if attributable individual audit records are required.
 - Admin routes are externally routable on the API host but remain protected by the high-entropy API key; only the admin server should hold it. Keep API and admin containers on the private Compose network.
-- List of accounts is derived only from records, so a Camel Accounts identity with no Simamia record will not appear. This console cannot suspend or edit Camel Accounts users.
+- List of accounts is derived only from records, so a Camel Accounts identity with no Mishe record will not appear. This console cannot suspend or edit Camel Accounts users.
 - CRUD uses permanent deletes and existing schema rules. There are no soft-delete, restore, account lock, approval, or data export workflows yet.
 - Audit writes are attempted after a successful record write. If SQLite fails while recording audit metadata, the business mutation remains committed and an `admin_audit_write_failed` server log is emitted; operators should alert on this event.

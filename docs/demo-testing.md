@@ -1,10 +1,10 @@
-# Simamia development notes
+# Mishe development notes
 
 ## Live test instance
 
-The UI defaults to `http://localhost:8080/api/v1` (override with `NEXT_PUBLIC_SIMAMIA_API_URL`). When reachable, the dashboard loads and edits business, order, customer, service, team and expense records through the Go API's SQLite store. Data routes require a Camel Accounts access token and are scoped to its subject. If the API cannot be reached during initial load, the UI falls back to browser-local sample data. SMS, email, mobile money processing and AI provider calls remain unimplemented.
+The UI defaults to `http://localhost:8080/api/v1` (override with `NEXT_PUBLIC_MISHE_API_URL`). When reachable, the dashboard loads and edits business, order, customer, service, team and expense records through the Go API's SQLite store. Data routes require a Camel Accounts access token and are scoped to its subject. If the API cannot be reached during initial load, the UI falls back to browser-local sample data. SMS, email, mobile money processing and AI provider calls remain unimplemented.
 
-**Data model:** SQLite state persists across API restarts in `api/data/simamia.db`. The API checks Camel Accounts userinfo before serving data routes; `/health` is public. Existing rows without an owner are not assigned to a user. Payments remain a read-only balance ledger derived from order totals; there is no payment processing.
+**Data model:** SQLite state persists across API restarts in `api/data/mishe.db`. The API checks Camel Accounts userinfo before serving data routes; `/health` is public. Existing rows without an owner are not assigned to a user. Payments remain a read-only balance ledger derived from order totals; there is no payment processing.
 
 ## Local startup
 
@@ -19,7 +19,7 @@ go run .
 Start the UI in another terminal:
 
 ```bash
-NEXT_PUBLIC_SIMAMIA_API_URL=http://localhost:8080/api/v1 npm run dev -- --hostname 0.0.0.0
+NEXT_PUBLIC_MISHE_API_URL=http://localhost:8080/api/v1 npm run dev -- --hostname 0.0.0.0
 ```
 
 Open `http://localhost:3000`, then choose **API & docs** to see whether the configured API is reachable. The dashboard's sample data remains local to the browser; use the API's REST endpoints to test backend workflows.
