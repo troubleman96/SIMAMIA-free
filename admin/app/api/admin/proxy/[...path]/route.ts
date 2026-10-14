@@ -47,7 +47,7 @@ async function proxy(request: Request, context: Context) {
     const upstream = await fetch(target, {
       method: request.method,
       headers: {
-        'X-Simamia-Admin-Key': token,
+        'X-Mishe-Admin-Key': token,
         ...(body ? { 'Content-Type': 'application/json' } : {})
       },
       body,
@@ -63,7 +63,7 @@ async function proxy(request: Request, context: Context) {
       }
     });
   } catch {
-    return NextResponse.json({ error: 'Simamia API is unavailable' }, { status: 502 });
+    return NextResponse.json({ error: 'Mishe API is unavailable' }, { status: 502 });
   }
 }
 
