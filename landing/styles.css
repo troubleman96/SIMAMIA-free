@@ -1,7 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap');
 :root {
-  --teal: #0f766e;
-  --teal-dark: #115e59;
+  --brand: #287fbd;
+  --brand-dark: #1a5681;
   --ink: #10201e;
   --muted: #63716d;
   --line: #e4ebe8;
@@ -56,7 +56,7 @@ a {
   width: 31px;
   height: 31px;
   border-radius: 9px;
-  background: var(--teal);
+  background: var(--brand);
   display: grid;
   grid-template-columns: repeat(2, 6px);
   grid-template-rows: repeat(2, 6px);
@@ -77,7 +77,7 @@ a {
 }
 .main-nav a:hover,
 .text-link:hover {
-  color: var(--teal);
+  color: var(--brand);
 }
 .button {
   min-height: 51px;
@@ -87,15 +87,15 @@ a {
   align-items: center;
   justify-content: center;
   border-radius: 8px;
-  background: var(--teal);
+  background: var(--brand);
   color: white;
   font-size: 14px;
   font-weight: 700;
-  box-shadow: 0 5px 13px rgba(15, 118, 110, 0.13);
+  box-shadow: 0 5px 13px rgba(40, 127, 189, 0.13);
   transition: 0.18s ease;
 }
 .button:hover {
-  background: var(--teal-dark);
+  background: var(--brand-dark);
   transform: translateY(-1px);
 }
 .button-small {
@@ -125,7 +125,7 @@ a {
   padding: 7px 0 38px;
 }
 .eyebrow {
-  color: var(--teal);
+  color: var(--brand);
   font-size: 11px;
   letter-spacing: 1.4px;
   text-transform: uppercase;
@@ -156,7 +156,7 @@ a {
 .section-heading h2 span,
 .feature-copy h2 span,
 .cta-content h2 span {
-  color: var(--teal);
+  color: var(--brand);
 }
 .hero-description {
   max-width: 495px;
@@ -190,7 +190,7 @@ a {
   place-items: center;
   border-radius: 50%;
   background: #d8f1e8;
-  color: var(--teal);
+  color: var(--brand);
   font-size: 11px;
   font-weight: 700;
 }
@@ -374,7 +374,7 @@ a {
 }
 .work-list-head a {
   font-size: 8px;
-  color: var(--teal);
+  color: var(--brand);
   font-weight: 700;
 }
 .work-row {
@@ -564,7 +564,7 @@ a {
   border-radius: 10px;
   font-size: 21px;
 }
-.icon-teal {
+.icon-brand {
   color: #18897c;
   background: #e4f5f0;
 }
@@ -721,7 +721,7 @@ a {
   place-items: center;
   border-radius: 8px;
   background: #e9f5f1;
-  color: var(--teal);
+  color: var(--brand);
   font-size: 15px;
 }
 .template-card:nth-child(2) .template-icon,
@@ -763,7 +763,7 @@ a {
   overflow: hidden;
   min-height: 342px;
   border-radius: 16px;
-  background: linear-gradient(118deg, #0f766e, #0b4a49 74%);
+  background: linear-gradient(118deg, #287fbd, #174568 74%);
   color: white;
   display: flex;
   align-items: center;
@@ -844,7 +844,7 @@ a {
   font-size: 10px;
 }
 .footer-main > a:last-child {
-  color: var(--teal);
+  color: var(--brand);
   font-size: 10px;
   font-weight: 700;
 }
