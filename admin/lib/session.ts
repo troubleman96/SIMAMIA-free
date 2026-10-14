@@ -1,7 +1,7 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { cookies } from 'next/headers';
 
-const COOKIE = 'simamia_admin_session';
+const COOKIE = 'mishe_admin_session';
 const SESSION_SECONDS = 60 * 60 * 8;
 
 function secret() {
