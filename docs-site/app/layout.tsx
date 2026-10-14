@@ -20,11 +20,11 @@ const bricolage = Bricolage_Grotesque({
 
 export const metadata = {
   title: {
-    default: 'Simamia API Documentation',
-    template: '%s | Simamia API Docs'
+    default: 'Mishe API Documentation',
+    template: '%s | Mishe API Docs'
   },
   description:
-    'Integration guides and complete endpoint reference for the Simamia service management API.'
+    'Integration guides and complete endpoint reference for the Mishe service management API.'
 };
 
 const navbar = (
@@ -33,16 +33,16 @@ const navbar = (
       <span className='brand-lockup'>
         <span className='brand-mark'>S</span>
         <span>
-          Simamia <span className='brand-muted'>Developers</span>
+          Mishe <span className='brand-muted'>Developers</span>
         </span>
       </span>
     }
-    projectLink='https://github.com/troubleman96/SIMAMIA'
-    chatLink='https://app.simamia.online'
+    projectLink='https://github.com/troubleman96/MISHE'
+    chatLink='https://app.mishe.online'
   />
 );
 
-const footer = <Footer>Simamia API documentation · Tanzania · TZS</Footer>;
+const footer = <Footer>Mishe API documentation · Tanzania · TZS</Footer>;
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
@@ -53,8 +53,8 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
           navbar={navbar}
           footer={footer}
           pageMap={await getPageMap()}
-          docsRepositoryBase='https://github.com/troubleman96/SIMAMIA/tree/main/docs-site'
-          nextThemes={{ defaultTheme: 'light', storageKey: 'simamia-docs-theme' }}
+          docsRepositoryBase='https://github.com/troubleman96/MISHE/tree/main/docs-site'
+          nextThemes={{ defaultTheme: 'light', storageKey: 'mishe-docs-theme' }}
         >
           {children}
         </Layout>

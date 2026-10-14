@@ -128,8 +128,8 @@ function Login({ onLogin }: { onLogin: () => void }) {
       <form className='login-card' onSubmit={submit}>
         <div className='brand-mark'>S</div>
         <p className='eyebrow'>PRIVATE OPERATIONS CONSOLE</p>
-        <h1>Sign in to Simamia Admin</h1>
-        <p className='muted'>Manage Simamia accounts, service records, usage, and audit history.</p>
+        <h1>Sign in to Mishe Admin</h1>
+        <p className='muted'>Manage Mishe accounts, service records, usage, and audit history.</p>
         <label htmlFor='admin-email'>Admin email</label>
         <input
           id='admin-email'
@@ -291,7 +291,7 @@ export default function AdminConsole() {
         <a className='brand' href='/'>
           <span className='brand-mark small'>S</span>
           <span>
-            <strong>Simamia</strong>
+            <strong>Mishe</strong>
             <small>ADMIN CONSOLE</small>
           </span>
         </a>
@@ -318,7 +318,7 @@ export default function AdminConsole() {
         <div className='sidebar-bottom'>
           <div className='admin-avatar'>SA</div>
           <div className='admin-identity'>
-            <strong>Simamia Operator</strong>
+            <strong>Mishe Operator</strong>
             <small>Platform administrator</small>
           </div>
           <button className='icon-button logout' onClick={logout} aria-label='Sign out'>
@@ -329,7 +329,7 @@ export default function AdminConsole() {
       <main className='main'>
         <header className='topbar'>
           <div className='crumb'>
-            <span>Simamia</span>
+            <span>Mishe</span>
             <b>/</b>
             {labels[page]}
           </div>
@@ -346,13 +346,13 @@ export default function AdminConsole() {
         <div className='content'>
           <div className='page-heading'>
             <div>
-              <p className='eyebrow'>SIMAMIA PLATFORM</p>
+              <p className='eyebrow'>MISHE PLATFORM</p>
               <h1>{labels[page]}</h1>
               <p className='muted'>
                 {page === 'overview'
                   ? 'A live view of tenant data and platform activity.'
                   : page === 'accounts'
-                    ? 'Business accounts inferred from Simamia-owned records.'
+                    ? 'Business accounts inferred from Mishe-owned records.'
                     : page === 'records'
                       ? 'Inspect and maintain each account’s operational records.'
                       : page === 'usage'
@@ -456,7 +456,7 @@ export default function AdminConsole() {
           {page === 'health' && <Health data={health} />}
           {page === 'audit' && <Audit rows={audit} pagination={pagination} onPage={setAuditPage} />}
           <footer className='footer'>
-            Simamia Admin <span>·</span> Internal operations <span>·</span> Business records are
+            Mishe Admin <span>·</span> Internal operations <span>·</span> Business records are
             scoped by account
           </footer>
         </div>
@@ -517,7 +517,7 @@ function Overview({ data, onNavigate }: { data: Json | null; onNavigate: (page: 
     {
       label: 'Business accounts',
       value: String(data?.account_count ?? '—'),
-      note: 'Distinct Simamia owner IDs',
+      note: 'Distinct Mishe owner IDs',
       icon: 'accounts'
     },
     {
@@ -541,7 +541,7 @@ function Overview({ data, onNavigate }: { data: Json | null; onNavigate: (page: 
             <span className='live-dot' /> PLATFORM OPERATIONS
           </span>
           <h2>Operations, with the full picture.</h2>
-          <p>Review account activity and keep Simamia business data accurate from one place.</p>
+          <p>Review account activity and keep Mishe business data accurate from one place.</p>
         </div>
         <div className='welcome-art'>
           <div className='art-ring ring-one' />
@@ -592,7 +592,7 @@ function Overview({ data, onNavigate }: { data: Json | null; onNavigate: (page: 
         <Icon name='shield' />
         <p>
           <strong>Account identities come from Camel Accounts.</strong> This console sees owner IDs
-          attached to Simamia records. User profile and credential administration stays in Camel
+          attached to Mishe records. User profile and credential administration stays in Camel
           Accounts.
         </p>
       </div>
@@ -603,7 +603,7 @@ function Overview({ data, onNavigate }: { data: Json | null; onNavigate: (page: 
 function Health({ data }: { data: Json | null }) {
   const states = [
     {
-      title: 'Simamia API',
+      title: 'Mishe API',
       status: data?.status ?? 'loading',
       detail: `Uptime ${Math.floor(Number(data?.uptime_seconds ?? 0) / 3600)}h ${Math.floor((Number(data?.uptime_seconds ?? 0) % 3600) / 60)}m`,
       icon: 'health'
@@ -684,8 +684,8 @@ function Accounts({
     <section className='panel'>
       <div className='panel-head'>
         <div>
-          <h2>Simamia accounts</h2>
-          <p>Each row represents a Camel Accounts subject with Simamia business data.</p>
+          <h2>Mishe accounts</h2>
+          <p>Each row represents a Camel Accounts subject with Mishe business data.</p>
         </div>
         <div className='search-field'>
           <Icon name='search' />
@@ -714,7 +714,7 @@ function Accounts({
               <tr key={account.owner_sub}>
                 <td>
                   <strong>{account.business_name || 'Business profile not set'}</strong>
-                  <small className='cell-muted'>Simamia tenant</small>
+                  <small className='cell-muted'>Mishe tenant</small>
                 </td>
                 <td>
                   <code>{account.owner_sub}</code>
@@ -742,7 +742,7 @@ function Accounts({
             <span className='empty-icon'>
               <Icon name='accounts' />
             </span>
-            <strong>No Simamia accounts found</strong>
+            <strong>No Mishe accounts found</strong>
             <p>Accounts appear when the API has stored business records for them.</p>
           </div>
         )}
@@ -921,8 +921,8 @@ function Audit({
         <div>
           <h2>Administrator activity</h2>
           <p>
-            Successful changes made through the Simamia admin API. Record values are never copied
-            into this log.
+            Successful changes made through the Mishe admin API. Record values are never copied into
+            this log.
           </p>
         </div>
         <span className='tag'>Newest first</span>
