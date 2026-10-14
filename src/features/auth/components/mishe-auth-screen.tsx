@@ -8,7 +8,7 @@ import { Icons } from '@/components/icons';
 import { logClientAuditEvent, logClientEvent } from '@/lib/observability';
 
 const issuer = process.env.NEXT_PUBLIC_CAMEL_ACCOUNTS_URL || 'https://accounts.camelcreatives.com';
-const clientId = process.env.NEXT_PUBLIC_CAMEL_ACCOUNTS_CLIENT_ID || 'mishe-35sj96';
+const clientId = process.env.NEXT_PUBLIC_CAMEL_ACCOUNTS_CLIENT_ID || 'simamia-35sj96';
 
 export function CamelAuthRoot({ children }: { children: React.ReactNode }) {
   const [providerKey, setProviderKey] = useState(0);
@@ -145,7 +145,7 @@ export function useMisheAuth() {
   return useCamelAuth();
 }
 
-export function CamelAuthScreen({ lang = 'sw' }: { lang?: 'sw' | 'en' }) {
+export function MisheAuthScreen({ lang = 'sw' }: { lang?: 'sw' | 'en' }) {
   const { loading } = useCamelAuth();
   const [googleLoading, setGoogleLoading] = useState(false);
   const [formLoading, setFormLoading] = useState(false);

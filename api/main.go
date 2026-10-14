@@ -355,7 +355,7 @@ func (a *API) handleHTTP(w http.ResponseWriter, r *http.Request) {
 			a.methodNotAllowed(w, r, requestID, "GET")
 			return
 		}
-		a.write(w, http.StatusOK, Record{"status": "ok", "service": "simamia-api", "version": "v1", "time_zone": "Africa/Dar_es_Salaam", "currency": "TZS"}, requestID, nil)
+		a.write(w, http.StatusOK, Record{"status": "ok", "service": "mishe-api", "version": "v1", "time_zone": "Africa/Dar_es_Salaam", "currency": "TZS"}, requestID, nil)
 		return
 	}
 	if parts[2] == "admin" {
@@ -730,15 +730,18 @@ func main() {
 	if port == "" {
 		port = "8080"
 	}
-	databasePath := os.Getenv("SIMAMIA_DB_PATH")
+	databasePath := os.Getenv("MISHE_DB_PATH")
 	if databasePath == "" {
 		databasePath = os.Getenv("HUDUMADESK_DB_PATH") // Backward compatibility for existing deployments.
 	}
 	if databasePath == "" {
-		databasePath = "data/simamia.db"
+		databasePath = "data/mishe.db"
 		if _, err := os.Stat(databasePath); errors.Is(err, os.ErrNotExist) {
-			if _, legacyErr := os.Stat("data/hudumadesk.db"); legacyErr == nil {
-				databasePath = "data/hudumadesk.db"
+			for _, legacy := range []string{"data/simamia.db", "data/hudumadesk.db"} {
+				if _, legacyErr := os.Stat(legacy); legacyErr == nil {
+					databasePath = legacy
+					break
+				}
 			}
 		}
 	}
@@ -750,7 +753,7 @@ func main() {
 	defer store.db.Close()
 	api := &API{store: store, accountsURL: os.Getenv("CAMEL_ACCOUNTS_URL"), startedAt: time.Now()}
 	srv := &http.Server{Addr: "0.0.0.0:" + port, Handler: api, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 15 * time.Second, IdleTimeout: 60 * time.Second}
-	slog.Info("service_started", "service", "simamia-api", "port", port, "database", databasePath)
+	slog.Info("service_started", "service", "mishe-api", "port", port, "database", databasePath)
 	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		slog.Error("service_stopped_unexpectedly", "error", err)
 		os.Exit(1)

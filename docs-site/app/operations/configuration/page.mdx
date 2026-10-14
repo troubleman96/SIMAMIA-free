@@ -28,7 +28,7 @@ At startup, the API seeds illustrative rows with `owner_sub=local-preview` when 
 Set an exact allowlist such as:
 
 ```env
-CORS_ALLOWED_ORIGINS=https://app.mishe.online
+CORS_ALLOWED_ORIGINS=https://app.simamia.online
 ```
 
 The API returns CORS headers only when the request's `Origin` matches an allowed item. When unset, it allows `*`; that is convenient for local browser development but too broad for production. CORS is a browser policy, not authentication: non-browser clients still need a valid token.

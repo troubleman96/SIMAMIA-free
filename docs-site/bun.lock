@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "simamia-docs",
+      "name": "mishe-docs",
       "dependencies": {
         "next": "16.2.12",
         "nextra": "4.6.1",

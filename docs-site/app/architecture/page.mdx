@@ -12,7 +12,7 @@ The production stack has three product services and a reverse proxy. The landing
 ```mermaid
 flowchart TB
   Visitor[Business owner or visitor]
-  DNS[DNS: mishe.online, app, api]
+  DNS[DNS: simamia.online, app, api]
   Proxy[Reverse proxy: Caddy or host Nginx]
   Landing[Landing website: static HTML/CSS/JS]
   App[Mishe app: Next.js static export]
@@ -20,9 +20,9 @@ flowchart TB
   Accounts[Camel Accounts: OAuth and userinfo]
   DB[(SQLite persistent volume)]
   Visitor --> DNS --> Proxy
-  Proxy -->|mishe.online| Landing
-  Proxy -->|app.mishe.online| App
-  Proxy -->|api.mishe.online| API
+  Proxy -->|simamia.online| Landing
+  Proxy -->|app.simamia.online| App
+  Proxy -->|api.simamia.online| API
   App -->|OAuth sign-in| Accounts
   App -->|Bearer token + JSON| API
   API -->|token introspection: /oauth/userinfo| Accounts
@@ -36,9 +36,9 @@ The app uses a public Camel Accounts OAuth client. Phone/password and Google sig
 ```mermaid
 sequenceDiagram
   actor Owner
-  participant App as app.mishe.online
+  participant App as app.simamia.online
   participant Accounts as Camel Accounts
-  participant API as api.mishe.online
+  participant API as api.simamia.online
   participant DB as SQLite
   Owner->>App: Open app and choose sign-in method
   App->>Accounts: OAuth authorization request (PKCE)

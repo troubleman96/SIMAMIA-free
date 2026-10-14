@@ -22,7 +22,7 @@ The default SQLite file is `data/mishe.db` relative to the API process working d
 
 - Health is public. Business data routes require a Camel Accounts bearer access token.
 - The API validates tokens against `CAMEL_ACCOUNTS_URL` (default `https://accounts.camelcreatives.com`) and scopes records to the token subject.
-- `CORS_ALLOWED_ORIGINS` is a comma-separated exact-origin allowlist. For local development, an unset value permits browser requests from any origin. Production should set it explicitly; the Compose default is `https://app.mishe.online`.
+- `CORS_ALLOWED_ORIGINS` is a comma-separated exact-origin allowlist. For local development, an unset value permits browser requests from any origin. Production should set it explicitly; the Compose default is `https://app.simamia.online`.
 - The API exposes `X-Request-ID` to browser clients so they can correlate frontend and API logs.
 - Authentication identifies an account, but business membership, staff roles, and shared-business permissions are not implemented yet.
 
@@ -36,7 +36,7 @@ The API currently stores business profiles, customers, services, orders/jobs, te
 
 ## Private platform administration
 
-The admin console is a separate Next.js server at `https://admin.mishe.online`. It authenticates operators with `MISHE_ADMIN_PASSWORD`, keeps a signed HttpOnly session cookie, and proxies requests to the Go API. The browser never receives the service-to-service admin key. The Go API accepts admin calls only with `X-Mishe-Admin-Key` matching `MISHE_ADMIN_TOKEN` (at least 32 characters); set the same random value for `MISHE_ADMIN_API_TOKEN` in Compose. Leave it unset to keep admin API routes disabled.
+The admin console is a separate Next.js server at `https://admin.simamia.online`. It authenticates operators with `MISHE_ADMIN_PASSWORD`, keeps a signed HttpOnly session cookie, and proxies requests to the Go API. The browser never receives the service-to-service admin key. The Go API accepts admin calls only with `X-Mishe-Admin-Key` matching `MISHE_ADMIN_TOKEN` (at least 32 characters); set the same random value for `MISHE_ADMIN_API_TOKEN` in Compose. Leave it unset to keep admin API routes disabled.
 
 Admin routes are under `/api/v1/admin`: `GET overview`, `GET health`, `GET accounts`, `GET accounts/{owner_sub}`, tenant-scoped `GET/POST accounts/{owner_sub}/{resource}`, tenant-scoped `GET/PATCH/DELETE accounts/{owner_sub}/{resource}/{record_id}`, `GET usage`, and `GET audit`. Supported resources are businesses, customers, services, orders, team, and expenses. Payments are derived from orders and remain read-only. All mutations use the same resource validation as the business API, assign/protect record IDs and ownership server-side, and append an audit row containing operator, action, target, timestamp, and changed field names (never field values).
 

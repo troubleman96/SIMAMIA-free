@@ -11,14 +11,14 @@ async function proxy(request: Request, context: Context) {
     return NextResponse.json({ error: 'Admin sign-in required' }, { status: 401 });
   if (request.method !== 'GET' && !isSameOrigin(request))
     return NextResponse.json({ error: 'Invalid request origin' }, { status: 403 });
-  const token = process.env.SIMAMIA_ADMIN_API_TOKEN;
+  const token = process.env.MISHE_ADMIN_API_TOKEN;
   if (!token || token.length < 32)
     return NextResponse.json({ error: 'Admin API is not configured' }, { status: 503 });
   const { path } = await context.params;
   if (!path.length || path.some((part) => part === '.' || part === '..' || part.includes('/'))) {
     return NextResponse.json({ error: 'Invalid API path' }, { status: 400 });
   }
-  const base = (process.env.SIMAMIA_API_URL ?? 'http://api:8080/api/v1').replace(/\/$/, '');
+  const base = (process.env.MISHE_API_URL ?? 'http://api:8080/api/v1').replace(/\/$/, '');
   const target = new URL(`${base}/admin/${path.map(encodeURIComponent).join('/')}`);
   target.search = new URL(request.url).search;
   let body: string | undefined;

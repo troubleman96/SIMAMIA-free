@@ -38,7 +38,7 @@ const navbar = (
       </span>
     }
     projectLink='https://github.com/troubleman96/MISHE'
-    chatLink='https://app.mishe.online'
+    chatLink='https://app.simamia.online'
   />
 );
 

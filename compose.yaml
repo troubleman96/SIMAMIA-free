@@ -4,7 +4,7 @@ services:
       context: .
       dockerfile: landing/Dockerfile
     restart: unless-stopped
-    networks: [simamia]
+    networks: [mishe]
 
   app:
     build:
@@ -13,12 +13,12 @@ services:
       args:
         NEXT_PUBLIC_CAMEL_ACCOUNTS_URL: ${NEXT_PUBLIC_CAMEL_ACCOUNTS_URL:-https://accounts.camelcreatives.com}
         NEXT_PUBLIC_CAMEL_ACCOUNTS_CLIENT_ID: ${NEXT_PUBLIC_CAMEL_ACCOUNTS_CLIENT_ID:-simamia-35sj96}
-        NEXT_PUBLIC_SIMAMIA_API_URL: ${NEXT_PUBLIC_SIMAMIA_API_URL:-https://api.simamia.online/api/v1}
+        NEXT_PUBLIC_MISHE_API_URL: ${NEXT_PUBLIC_MISHE_API_URL:-https://api.simamia.online/api/v1}
         NEXT_PUBLIC_SENTRY_DSN: ${NEXT_PUBLIC_SENTRY_DSN:-}
         NEXT_PUBLIC_SENTRY_DISABLED: ${NEXT_PUBLIC_SENTRY_DISABLED:-false}
     restart: unless-stopped
     depends_on: [api]
-    networks: [simamia]
+    networks: [mishe]
 
   admin:
     build:
@@ -28,21 +28,21 @@ services:
     environment:
       NODE_ENV: production
       PORT: "3000"
-      SIMAMIA_API_URL: http://api:8080/api/v1
-      SIMAMIA_ADMIN_EMAIL: ${SIMAMIA_ADMIN_EMAIL:?Set the admin email}
-      SIMAMIA_ADMIN_API_TOKEN: ${SIMAMIA_ADMIN_API_TOKEN:?Set a random 32+ character admin API token}
-      SIMAMIA_ADMIN_PASSWORD: ${SIMAMIA_ADMIN_PASSWORD:?Set the private admin password}
-      SIMAMIA_ADMIN_SESSION_SECRET: ${SIMAMIA_ADMIN_SESSION_SECRET:?Set a random 32+ character session secret}
+      MISHE_API_URL: http://api:8080/api/v1
+      MISHE_ADMIN_EMAIL: ${MISHE_ADMIN_EMAIL:?Set the admin email}
+      MISHE_ADMIN_API_TOKEN: ${MISHE_ADMIN_API_TOKEN:?Set a random 32+ character admin API token}
+      MISHE_ADMIN_PASSWORD: ${MISHE_ADMIN_PASSWORD:?Set the private admin password}
+      MISHE_ADMIN_SESSION_SECRET: ${MISHE_ADMIN_SESSION_SECRET:?Set a random 32+ character session secret}
       ADMIN_APP_ORIGIN: ${ADMIN_APP_ORIGIN:-https://admin.simamia.online}
     depends_on: [api]
-    networks: [simamia]
+    networks: [mishe]
 
   docs:
     build:
       context: ./docs-site
       dockerfile: Dockerfile
     restart: unless-stopped
-    networks: [simamia]
+    networks: [mishe]
 
   api:
     build:
@@ -52,14 +52,14 @@ services:
     environment:
       PORT: "8080"
       LOG_LEVEL: ${LOG_LEVEL:-info}
-      SIMAMIA_DB_PATH: /data/simamia.db
+      MISHE_DB_PATH: /data/simamia.db
       CAMEL_ACCOUNTS_URL: ${CAMEL_ACCOUNTS_URL:-https://accounts.camelcreatives.com}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-https://app.simamia.online}
-      SIMAMIA_ADMIN_TOKEN: ${SIMAMIA_ADMIN_API_TOKEN:-}
-      SIMAMIA_ADMIN_ACTOR: ${SIMAMIA_ADMIN_ACTOR:-platform-operator}
+      MISHE_ADMIN_TOKEN: ${MISHE_ADMIN_API_TOKEN:-}
+      MISHE_ADMIN_ACTOR: ${MISHE_ADMIN_ACTOR:-platform-operator}
     volumes:
       - simamia_data:/data
-    networks: [simamia]
+    networks: [mishe]
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/api/v1/health"]
       interval: 30s
@@ -79,10 +79,10 @@ services:
       - caddy_data:/data
       - caddy_config:/config
     depends_on: [landing, app, admin, docs, api]
-    networks: [simamia]
+    networks: [mishe]
 
 networks:
-  simamia:
+  mishe:
 
 volumes:
   simamia_data:

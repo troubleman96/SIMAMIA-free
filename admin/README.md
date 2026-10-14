@@ -1,6 +1,6 @@
 # Mishe Admin
 
-Private operator console for Mishe. This standalone Next.js application is deployed at `https://admin.mishe.online`.
+Private operator console for Mishe. This standalone Next.js application is deployed at `https://admin.simamia.online`.
 
 ## Local development
 

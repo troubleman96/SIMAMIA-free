@@ -54,7 +54,7 @@ paths:
       operationId: getAdminOverview
       summary: Get platform record overview
       security:
-      - simamiaAdminKey: []
+      - misheAdminKey: []
       responses:
         '200':
           description: Tenant count, stored record total, and counts by resource.
@@ -73,7 +73,7 @@ paths:
       summary: List Mishe tenants inferred from stored records
       description: These are owner_sub values associated with Mishe business data, not a canonical Camel Accounts user directory. Supports q, page, and page_size.
       security:
-      - simamiaAdminKey: []
+      - misheAdminKey: []
       parameters:
       - $ref: '#/components/parameters/Q'
       - $ref: '#/components/parameters/Page'
@@ -93,7 +93,7 @@ paths:
       operationId: getAdminAccount
       summary: Get one Mishe tenant summary
       security:
-      - simamiaAdminKey: []
+      - misheAdminKey: []
       parameters:
       - $ref: '#/components/parameters/OwnerSub'
       responses:
@@ -111,7 +111,7 @@ paths:
       operationId: listAdminAccountRecords
       summary: List records for a tenant and resource
       security:
-      - simamiaAdminKey: []
+      - misheAdminKey: []
       parameters:
       - $ref: '#/components/parameters/OwnerSub'
       - $ref: '#/components/parameters/AdminResource'
@@ -131,7 +131,7 @@ paths:
       summary: Create a tenant record
       description: Assigns id and owner_sub on the server, applies the same validation as the business API, and writes an audit event.
       security:
-      - simamiaAdminKey: []
+      - misheAdminKey: []
       parameters:
       - $ref: '#/components/parameters/OwnerSub'
       - $ref: '#/components/parameters/AdminResource'
@@ -156,7 +156,7 @@ paths:
       operationId: getAdminAccountRecord
       summary: Get a tenant record
       security:
-      - simamiaAdminKey: []
+      - misheAdminKey: []
       parameters:
       - $ref: '#/components/parameters/OwnerSub'
       - $ref: '#/components/parameters/AdminResource'
@@ -176,7 +176,7 @@ paths:
       summary: Update a tenant record
       description: Merges supplied properties, preserves ownership and id, validates the result, and records changed field names in the audit log.
       security:
-      - simamiaAdminKey: []
+      - misheAdminKey: []
       parameters:
       - $ref: '#/components/parameters/OwnerSub'
       - $ref: '#/components/parameters/AdminResource'
@@ -202,7 +202,7 @@ paths:
       summary: Delete a tenant record
       description: Permanently removes one Mishe business record and adds an audit event. Payments are derived and cannot be edited directly.
       security:
-      - simamiaAdminKey: []
+      - misheAdminKey: []
       parameters:
       - $ref: '#/components/parameters/OwnerSub'
       - $ref: '#/components/parameters/AdminResource'
@@ -223,7 +223,7 @@ paths:
       summary: Get SQLite usage indicators
       description: Counts records and serialized payload bytes by resource, recent creations, latest updates, and audit event count. Payload bytes exclude indexes, WAL, and backups.
       security:
-      - simamiaAdminKey: []
+      - misheAdminKey: []
       responses:
         '200':
           description: Usage metrics by resource.
@@ -238,7 +238,7 @@ paths:
       summary: Check API and database health
       description: Verifies API database connectivity and reports configured identity/admin services. It does not probe Camel Accounts or replace container monitoring.
       security:
-      - simamiaAdminKey: []
+      - misheAdminKey: []
       responses:
         '200':
           description: Current process, SQLite, and configuration status.
@@ -253,7 +253,7 @@ paths:
       summary: List administrator changes
       description: Newest first. Stores actor, action, resource, record and tenant IDs, timestamp, and changed field names. Business record values are excluded.
       security:
-      - simamiaAdminKey: []
+      - misheAdminKey: []
       parameters:
       - $ref: '#/components/parameters/Page'
       - $ref: '#/components/parameters/PageSize'
@@ -1667,7 +1667,7 @@ paths:
               example:
                 data:
                   status: ok
-                  service: simamia-api
+                  service: mishe-api
                   version: v1
                   time_zone: Africa/Dar_es_Salaam
                   currency: TZS
@@ -1768,7 +1768,7 @@ components:
       bearerFormat: OAuth 2.0 access token
       description: Access token from a successful Camel Accounts OAuth session. Sent to Camel Accounts /oauth/userinfo
         for validation.
-    simamiaAdminKey:
+    misheAdminKey:
       type: apiKey
       in: header
       name: X-Mishe-Admin-Key
@@ -2491,7 +2491,7 @@ components:
           const: ok
         service:
           type: string
-          const: simamia-api
+          const: mishe-api
         version:
           type: string
           const: v1
@@ -2531,7 +2531,7 @@ components:
           schema:
             $ref: '#/components/schemas/ErrorEnvelope'
     AdminDisabled:
-      description: Admin API is disabled because SIMAMIA_ADMIN_TOKEN is not configured with at least 32 characters.
+      description: Admin API is disabled because MISHE_ADMIN_TOKEN is not configured with at least 32 characters.
       content:
         application/json:
           schema:

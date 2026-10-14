@@ -6,7 +6,7 @@ import { Icons } from '@/components/icons';
 import { logClientAuditEvent, logClientEvent } from '@/lib/observability';
 
 const issuer = process.env.NEXT_PUBLIC_CAMEL_ACCOUNTS_URL || 'https://accounts.camelcreatives.com';
-const clientId = process.env.NEXT_PUBLIC_CAMEL_ACCOUNTS_CLIENT_ID || 'mishe-35sj96';
+const clientId = process.env.NEXT_PUBLIC_CAMEL_ACCOUNTS_CLIENT_ID || 'simamia-35sj96';
 
 interface PendingAuthorization {
   state: string;

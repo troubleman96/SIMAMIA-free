@@ -1,12 +1,12 @@
 # Mishe Admin Console
 
-The private operator console runs at `https://admin.mishe.online`. It provides a platform overview, inferred Mishe tenant list, tenant-scoped CRUD for every persisted business resource, SQLite usage metrics, and a durable audit trail.
+The private operator console runs at `https://admin.simamia.online`. It provides a platform overview, inferred Mishe tenant list, tenant-scoped CRUD for every persisted business resource, SQLite usage metrics, and a durable audit trail.
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-  Operator[Operator browser] -->|HTTPS, HttpOnly signed session| Admin[Next.js admin.mishe.online]
+  Operator[Operator browser] -->|HTTPS, HttpOnly signed session| Admin[Next.js admin.simamia.online]
   Admin -->|Same-origin /api/admin/proxy; session checked| Proxy[Admin server proxy]
   Proxy -->|Private Compose network + X-Mishe-Admin-Key| API[Go API]
   API -->|read / validate / write| SQLite[(SQLite records)]
@@ -29,7 +29,7 @@ Payments are derived from orders and cannot be edited directly. There is no hard
 
 ## Endpoints
 
-All endpoints below are relative to `https://api.mishe.online/api/v1`. They require:
+All endpoints below are relative to `https://api.simamia.online/api/v1`. They require:
 
 ```http
 X-Mishe-Admin-Key: <MISHE_ADMIN_API_TOKEN>
@@ -54,7 +54,7 @@ Never call these endpoints with the admin key from browser JavaScript. The admin
 
 ```sh
 curl -H "X-Mishe-Admin-Key: $MISHE_ADMIN_API_TOKEN" \
-  https://api.mishe.online/api/v1/admin/overview
+  https://api.simamia.online/api/v1/admin/overview
 ```
 
 ### Example: list customer records for a tenant
@@ -65,7 +65,7 @@ curl -G \
   --data-urlencode 'q=asha' \
   --data-urlencode 'page=1' \
   --data-urlencode 'page_size=50' \
-  "https://api.mishe.online/api/v1/admin/accounts/$OWNER_SUB/customers"
+  "https://api.simamia.online/api/v1/admin/accounts/$OWNER_SUB/customers"
 ```
 
 ### Example: add an expense
@@ -75,7 +75,7 @@ curl -X POST \
   -H "X-Mishe-Admin-Key: $MISHE_ADMIN_API_TOKEN" \
   -H 'Content-Type: application/json' \
   --data '{"description":"Shop supplies","category":"Supplies","amount":12500,"date":"2026-10-11","currency":"TZS"}' \
-  "https://api.mishe.online/api/v1/admin/accounts/$OWNER_SUB/expenses"
+  "https://api.simamia.online/api/v1/admin/accounts/$OWNER_SUB/expenses"
 ```
 
 ## Configure and run
@@ -88,7 +88,7 @@ MISHE_ADMIN_PASSWORD=<long private operator password>
 MISHE_ADMIN_API_TOKEN=<at least 32 random characters>
 MISHE_ADMIN_SESSION_SECRET=<different random secret, at least 32 characters>
 MISHE_ADMIN_ACTOR=platform-operator
-ADMIN_APP_ORIGIN=https://admin.mishe.online
+ADMIN_APP_ORIGIN=https://admin.simamia.online
 ```
 
 Generate independent values with:
@@ -103,7 +103,7 @@ Then build and start the admin service with the same Compose command used by the
 docker compose up -d --build admin api caddy
 ```
 
-If host Nginx owns ports 80/443, use `deploy/compose.vps.yaml` and install `deploy/nginx-mishe.conf`; that proxy sends `admin.mishe.online` to loopback port `4176`. Obtain a TLS certificate for the admin hostname with the same Certbot setup as the other Mishe hosts.
+If host Nginx owns ports 80/443, use `deploy/compose.vps.yaml` and install `deploy/nginx-mishe.conf`; that proxy sends `admin.simamia.online` to loopback port `4176`. Obtain a TLS certificate for the admin hostname with the same Certbot setup as the other Mishe hosts.
 
 For local development, start the admin Next app on port 3001 from `admin/`. Provide `MISHE_API_URL=http://localhost:8080/api/v1`, `MISHE_ADMIN_EMAIL`, `MISHE_ADMIN_API_TOKEN` (matching API's `MISHE_ADMIN_TOKEN`), `MISHE_ADMIN_PASSWORD`, `MISHE_ADMIN_SESSION_SECRET`, and `ADMIN_APP_ORIGIN=http://localhost:3001`. The Go API needs a persistent SQLite database; its admin routes return `ADMIN_REQUIRES_DATABASE` when using the in-memory preview store.
 

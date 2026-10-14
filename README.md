@@ -8,10 +8,10 @@ Mishe is a Swahili-first business operations platform for small service and reta
 | --- | --- |
 | `src/` | Next.js 16 app: dashboard, Camel Accounts sign-in, business onboarding, and product UI |
 | `src/features/onboarding/business-templates.ts` | Eight workflow templates and their labels, statuses, intake fields, and sample services |
-| `landing/` | Public `mishe.online` website (plain HTML, CSS, and JavaScript) |
+| `landing/` | Public `simamia.online` website (plain HTML, CSS, and JavaScript) |
 | `api/` | Go HTTP API, SQLite persistence, and OpenAPI contract |
-| `admin/` | Private Next.js operator console for tenant data, usage, and audit history (`admin.mishe.online`) |
-| `docs-site/` | Next.js API documentation site (`docs.mishe.online`) |
+| `admin/` | Private Next.js operator console for tenant data, usage, and audit history (`admin.simamia.online`) |
+| `docs-site/` | Next.js API documentation site (`docs.simamia.online`) |
 | `deploy/` | Caddy and host-Nginx configuration for production routing |
 | `compose.yaml` | Local/standalone deployment for landing, app, API, and Caddy |
 | `docs/` | Product notes, API examples, integration research, and deployment procedures |
@@ -40,7 +40,7 @@ Templates currently tailor labels, statuses, intake fields, and example services
 - Payment records are operational ledger entries derived from work records. Mishe does not process a mobile-money transaction or issue a TRA fiscal receipt.
 - SMS, email, AI, and payment-provider connections are not fully implemented. Read [`docs/integrations.md`](docs/integrations.md) for current status and provider notes.
 - SQLite is intended for a single API instance. Production still needs tested backups, shared-business roles, and operational monitoring before scaling out.
-- The private `admin.mishe.online` console administers Mishe records and tenants inferred from record ownership. It does not administer Camel Accounts credentials or identities; see [`docs/admin-console.md`](docs/admin-console.md).
+- The private `admin.simamia.online` console administers Mishe records and tenants inferred from record ownership. It does not administer Camel Accounts credentials or identities; see [`docs/admin-console.md`](docs/admin-console.md).
 
 ## Requirements
 
@@ -81,7 +81,7 @@ go run .
 
 ```bash
 NEXT_PUBLIC_CAMEL_ACCOUNTS_URL=https://accounts.camelcreatives.com \
-NEXT_PUBLIC_CAMEL_ACCOUNTS_CLIENT_ID=mishe-35sj96 \
+NEXT_PUBLIC_CAMEL_ACCOUNTS_CLIENT_ID=simamia-35sj96 \
 NEXT_PUBLIC_MISHE_API_URL=http://localhost:8080/api/v1 \
 bun run dev
 ```

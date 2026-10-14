@@ -5,9 +5,9 @@ const COOKIE = 'mishe_admin_session';
 const SESSION_SECONDS = 60 * 60 * 8;
 
 function secret() {
-  const value = process.env.SIMAMIA_ADMIN_SESSION_SECRET;
+  const value = process.env.MISHE_ADMIN_SESSION_SECRET;
   if (!value || value.length < 32)
-    throw new Error('SIMAMIA_ADMIN_SESSION_SECRET must be at least 32 characters');
+    throw new Error('MISHE_ADMIN_SESSION_SECRET must be at least 32 characters');
   return value;
 }
 
@@ -48,7 +48,7 @@ export async function clearAdminSession() {
 }
 
 export function passwordMatches(password: string) {
-  const expected = process.env.SIMAMIA_ADMIN_PASSWORD ?? '';
+  const expected = process.env.MISHE_ADMIN_PASSWORD ?? '';
   if (!expected) return false;
   const suppliedHash = createHmac('sha256', secret()).update(password).digest();
   const expectedHash = createHmac('sha256', secret()).update(expected).digest();
@@ -56,7 +56,7 @@ export function passwordMatches(password: string) {
 }
 
 export function emailMatches(email: string) {
-  const expected = process.env.SIMAMIA_ADMIN_EMAIL ?? '';
+  const expected = process.env.MISHE_ADMIN_EMAIL ?? '';
   if (!expected) return false;
   const suppliedHash = createHmac('sha256', secret()).update(email.trim().toLowerCase()).digest();
   const expectedHash = createHmac('sha256', secret())

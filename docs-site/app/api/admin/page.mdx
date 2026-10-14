@@ -5,7 +5,7 @@ description: Tenant, record, usage, system-health, and audit endpoints used by t
 
 # Private platform administration
 
-The operator console at `https://admin.mishe.online` uses these server-to-server endpoints. This API key is a private machine credential. **Do not enter or embed it in browser JavaScript, public Swagger requests, mobile apps, or customer integrations.** The Admin Next.js server checks its signed operator session and sends `X-Mishe-Admin-Key` over the private Compose network.
+The operator console at `https://admin.simamia.online` uses these server-to-server endpoints. This API key is a private machine credential. **Do not enter or embed it in browser JavaScript, public Swagger requests, mobile apps, or customer integrations.** The Admin Next.js server checks its signed operator session and sends `X-Mishe-Admin-Key` over the private Compose network.
 
 The console administers Mishe business data. The API does not provide Camel Accounts credential, Google connection, or identity lifecycle administration. Tenants are inferred from `owner_sub` fields on stored Mishe records; an identity with no business records does not appear here.
 
@@ -47,7 +47,7 @@ curl -X POST \
   -H "X-Mishe-Admin-Key: $MISHE_ADMIN_API_TOKEN" \
   -H 'Content-Type: application/json' \
   --data '{"name":"Asha Mushi","phone":"+255712345678"}' \
-  "https://api.mishe.online/api/v1/admin/accounts/$OWNER_SUB/customers"
+  "https://api.simamia.online/api/v1/admin/accounts/$OWNER_SUB/customers"
 ```
 
 ```sh
@@ -55,7 +55,7 @@ curl -X PATCH \
   -H "X-Mishe-Admin-Key: $MISHE_ADMIN_API_TOKEN" \
   -H 'Content-Type: application/json' \
   --data '{"phone":"+255713000000"}' \
-  "https://api.mishe.online/api/v1/admin/accounts/$OWNER_SUB/customers/CUS-0001"
+  "https://api.simamia.online/api/v1/admin/accounts/$OWNER_SUB/customers/CUS-0001"
 ```
 
 `DELETE` is permanent. There is no soft delete or restore. Every successful admin create, update, or delete appends an SQLite audit event with actor label, operation, resource, record ID, tenant subject, time, and changed property names. Property values are excluded. If an audit write fails after the record change succeeds, the API logs `admin_audit_write_failed`; monitor container logs for that event.

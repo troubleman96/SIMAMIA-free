@@ -1,5 +1,5 @@
 {
-  "name": "@simamia/admin",
+  "name": "@mishe/admin",
   "private": true,
   "scripts": {
     "dev": "next dev --webpack -p 3001",

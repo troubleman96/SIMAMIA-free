@@ -9,14 +9,14 @@ The API is normally deployed with the landing website and app from the Mishe rep
 
 ## Standalone server with Caddy
 
-Point `mishe.online`, `app.mishe.online`, and `api.mishe.online` to the server, open inbound ports 80/443, then from the Mishe repo root:
+Point `simamia.online`, `app.simamia.online`, and `api.simamia.online` to the server, open inbound ports 80/443, then from the Mishe repo root:
 
 ```bash
 cp .env.server.example .env
 # Review .env and configure production origins.
 docker compose up -d --build
 docker compose ps
-curl https://api.mishe.online/api/v1/health
+curl https://api.simamia.online/api/v1/health
 ```
 
 Caddy routes the API host to the internal `api:8080` service and obtains TLS certificates automatically.
@@ -38,7 +38,7 @@ Before an update, take and verify an off-server database backup. Then pull the r
 ```bash
 docker compose up -d --build
 docker compose ps
-curl https://api.mishe.online/api/v1/health
+curl https://api.simamia.online/api/v1/health
 ```
 
 For an existing Nginx VPS, use the same Compose override used at initial deployment.

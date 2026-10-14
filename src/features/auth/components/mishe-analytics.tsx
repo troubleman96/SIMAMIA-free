@@ -2,7 +2,7 @@
 
 import Script from 'next/script';
 import { useEffect, useState } from 'react';
-import { useMisheAuth } from './camel-auth-screen';
+import { useMisheAuth } from './mishe-auth-screen';
 
 declare global {
   interface Window {

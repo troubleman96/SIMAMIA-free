@@ -1,6 +1,6 @@
 :root {
-  --simamia-teal: #0f766e;
-  --simamia-teal-soft: #ccfbf1;
+  --mishe-teal: #0f766e;
+  --mishe-teal-soft: #ccfbf1;
 }
 
 body {
@@ -28,7 +28,7 @@ body .brand-lockup {
   place-items: center;
   border-radius: 0.65rem;
   color: white;
-  background: var(--simamia-teal);
+  background: var(--mishe-teal);
   font-size: 0.95rem;
 }
 
@@ -63,7 +63,7 @@ body .brand-lockup {
 }
 
 .swagger-eyebrow {
-  color: var(--simamia-teal);
+  color: var(--mishe-teal);
   font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -72,7 +72,7 @@ body .brand-lockup {
 .swagger-intro a {
   display: inline-flex;
   margin-top: 0.5rem;
-  color: var(--simamia-teal);
+  color: var(--mishe-teal);
   font-weight: 600;
   text-decoration: underline;
   text-underline-offset: 0.2em;

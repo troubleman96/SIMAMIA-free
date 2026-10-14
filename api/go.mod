@@ -1,4 +1,4 @@
-module simamia/api
+module mishe/api
 
 go 1.26
 

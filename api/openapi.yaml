@@ -8,15 +8,15 @@ info:
     single API instance. Payments are a read-only view derived from orders, not provider transactions.
   contact:
     name: Mishe API documentation
-    url: https://mishe.online
+    url: https://simamia.online
 servers:
-- url: https://api.mishe.online/api/v1
+- url: https://api.simamia.online/api/v1
   description: Production
 - url: http://localhost:8080/api/v1
   description: Local Go API
 externalDocs:
   description: Full narrative guides, workflow diagrams, auth, and current limitations
-  url: https://docs.mishe.online
+  url: https://docs.simamia.online
 security:
 - camelBearer: []
 tags:

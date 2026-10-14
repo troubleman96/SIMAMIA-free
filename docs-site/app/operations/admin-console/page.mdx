@@ -5,7 +5,7 @@ description: Secure configuration and routing for the private Mishe platform adm
 
 # Admin console deployment
 
-The admin app is a separate Next.js server at `https://admin.mishe.online`, routed to the `admin` Compose service on port 3000. With the existing host Nginx setup, Compose binds it only to `127.0.0.1:4176` and `deploy/nginx-mishe.conf` proxies the admin hostname to that loopback port. DNS and a TLS certificate for `admin.mishe.online` are required.
+The admin app is a separate Next.js server at `https://admin.simamia.online`, routed to the `admin` Compose service on port 3000. With the existing host Nginx setup, Compose binds it only to `127.0.0.1:4176` and `deploy/nginx-mishe.conf` proxies the admin hostname to that loopback port. DNS and a TLS certificate for `admin.simamia.online` are required.
 
 ## Server-only environment values
 
@@ -16,7 +16,7 @@ MISHE_ADMIN_PASSWORD=<private operator password>
 MISHE_ADMIN_API_TOKEN=<random key, 32 or more characters>
 MISHE_ADMIN_SESSION_SECRET=<different random secret, 32 or more characters>
 MISHE_ADMIN_ACTOR=platform-operator
-ADMIN_APP_ORIGIN=https://admin.mishe.online
+ADMIN_APP_ORIGIN=https://admin.simamia.online
 ```
 
 Set `MISHE_ADMIN_API_TOKEN` on the admin service and as the API's `MISHE_ADMIN_TOKEN`; Compose wiring does this. Generate independent values with `openssl rand -base64 36`. A missing/short Go admin key disables the API with `503 ADMIN_DISABLED`.
