@@ -1,13 +1,13 @@
 openapi: 3.1.0
 info:
-  title: Simamia Service Management API
+  title: Mishe Service Management API
   version: 0.1.0
-  summary: REST API for Simamia service operations
+  summary: REST API for Mishe service operations
   description: Contract documented from the Go implementation in api/main.go. Data endpoints require a Camel Accounts
     bearer access token. Records are scoped to the Camel Accounts subject. SQLite persistence is intended for a
     single API instance. Payments are a read-only view derived from orders, not provider transactions.
   contact:
-    name: Simamia API documentation
+    name: Mishe API documentation
     url: https://simamia.online
 servers:
 - url: https://api.simamia.online/api/v1
@@ -23,7 +23,7 @@ tags:
 - name: Health
   description: Unauthenticated process health.
 - name: Businesses
-  description: Profiles selected during Simamia onboarding. The Go API accepts any JSON object for this resource
+  description: Profiles selected during Mishe onboarding. The Go API accepts any JSON object for this resource
     and does not enforce required fields or uniqueness.
 - name: Customers
   description: Customer contact records. name and phone must be present and non-empty. Phone uniqueness and syntax
@@ -46,7 +46,7 @@ tags:
 - name: CORS and preflight
   description: Browser preflight requests handled before route authentication. Responses expose X-Request-ID to browser clients.
 - name: Admin
-  description: Private platform administration API. Requests use X-Simamia-Admin-Key and must originate from the admin Next.js server. Camel Accounts identities and credentials are managed separately.
+  description: Private platform administration API. Requests use X-Mishe-Admin-Key and must originate from the admin Next.js server. Camel Accounts identities and credentials are managed separately.
 paths:
   /admin/overview:
     get:
@@ -70,8 +70,8 @@ paths:
     get:
       tags: [Admin]
       operationId: listAdminAccounts
-      summary: List Simamia tenants inferred from stored records
-      description: These are owner_sub values associated with Simamia business data, not a canonical Camel Accounts user directory. Supports q, page, and page_size.
+      summary: List Mishe tenants inferred from stored records
+      description: These are owner_sub values associated with Mishe business data, not a canonical Camel Accounts user directory. Supports q, page, and page_size.
       security:
       - simamiaAdminKey: []
       parameters:
@@ -91,7 +91,7 @@ paths:
     get:
       tags: [Admin]
       operationId: getAdminAccount
-      summary: Get one Simamia tenant summary
+      summary: Get one Mishe tenant summary
       security:
       - simamiaAdminKey: []
       parameters:
@@ -200,7 +200,7 @@ paths:
       tags: [Admin]
       operationId: deleteAdminAccountRecord
       summary: Delete a tenant record
-      description: Permanently removes one Simamia business record and adds an audit event. Payments are derived and cannot be edited directly.
+      description: Permanently removes one Mishe business record and adds an audit event. Payments are derived and cannot be edited directly.
       security:
       - simamiaAdminKey: []
       parameters:
@@ -270,7 +270,7 @@ paths:
       - Businesses
       operationId: listBusinesses
       summary: List businesses
-      description: Profiles selected during Simamia onboarding. The Go API accepts any JSON object for this resource
+      description: Profiles selected during Mishe onboarding. The Go API accepts any JSON object for this resource
         and does not enforce required fields or uniqueness. Results are restricted to the authenticated Camel Accounts
         subject. q/status filtering is performed before pagination. A page beyond the end returns an empty array.
       parameters:
@@ -299,7 +299,7 @@ paths:
       - Businesses
       operationId: createBusinessProfile
       summary: Create business profile
-      description: Profiles selected during Simamia onboarding. The Go API accepts any JSON object for this resource
+      description: Profiles selected during Mishe onboarding. The Go API accepts any JSON object for this resource
         and does not enforce required fields or uniqueness. The API assigns the record ID and owner_sub; caller-supplied
         ID/ownership values cannot establish ownership. Request properties are open ended and unknown properties
         are preserved.
@@ -1771,14 +1771,14 @@ components:
     simamiaAdminKey:
       type: apiKey
       in: header
-      name: X-Simamia-Admin-Key
+      name: X-Mishe-Admin-Key
       description: Private server-to-server key. Never expose this key in browser code; call through the Admin app proxy.
   parameters:
     OwnerSub:
       name: owner_sub
       in: path
       required: true
-      description: Camel Accounts subject owning these Simamia records.
+      description: Camel Accounts subject owning these Mishe records.
       schema:
         type: string
     AdminResource:
@@ -2525,7 +2525,7 @@ components:
           $ref: '#/components/schemas/Meta'
   responses:
     AdminUnauthorized:
-      description: Missing or invalid X-Simamia-Admin-Key.
+      description: Missing or invalid X-Mishe-Admin-Key.
       content:
         application/json:
           schema:
