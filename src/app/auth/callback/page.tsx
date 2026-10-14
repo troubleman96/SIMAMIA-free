@@ -6,7 +6,7 @@ import { Icons } from '@/components/icons';
 import { logClientAuditEvent, logClientEvent } from '@/lib/observability';
 
 const issuer = process.env.NEXT_PUBLIC_CAMEL_ACCOUNTS_URL || 'https://accounts.camelcreatives.com';
-const clientId = process.env.NEXT_PUBLIC_CAMEL_ACCOUNTS_CLIENT_ID || 'simamia-35sj96';
+const clientId = process.env.NEXT_PUBLIC_CAMEL_ACCOUNTS_CLIENT_ID || 'mishe-35sj96';
 
 interface PendingAuthorization {
   state: string;
@@ -34,15 +34,15 @@ export default function CamelAuthCallbackPage() {
       const code = params.get('code');
       const returnedState = params.get('state');
       const authError = params.get('error_description') || params.get('error');
-      const pendingValue = localStorage.getItem('simamia_oauth_pending');
+      const pendingValue = localStorage.getItem('mishe_oauth_pending');
 
       const fail = (reason: string) => {
         logClientEvent('warn', 'auth.callback_failed', {
           area: 'auth',
           operation: 'oauth_callback'
         });
-        localStorage.removeItem('simamia_oauth_pending');
-        localStorage.setItem('simamia_oauth_error', reason);
+        localStorage.removeItem('mishe_oauth_pending');
+        localStorage.setItem('mishe_oauth_error', reason);
         if (!cancelled) {
           setMessage(reason);
           setError(true);
@@ -54,7 +54,7 @@ export default function CamelAuthCallbackPage() {
         return;
       }
       if (!code || !returnedState || !pendingValue) {
-        fail('Jibu la kuingia halijakamilika. Rudi Simamia ujaribu tena.');
+        fail('Jibu la kuingia halijakamilika. Rudi Mishe ujaribu tena.');
         return;
       }
 
@@ -62,11 +62,11 @@ export default function CamelAuthCallbackPage() {
       try {
         pending = JSON.parse(pendingValue) as PendingAuthorization;
       } catch {
-        fail('Taarifa za kuingia zimeharibika. Rudi Simamia ujaribu tena.');
+        fail('Taarifa za kuingia zimeharibika. Rudi Mishe ujaribu tena.');
         return;
       }
       if (returnedState !== pending.state) {
-        fail('Uthibitisho wa kuingia haujalingana. Rudi Simamia ujaribu tena.');
+        fail('Uthibitisho wa kuingia haujalingana. Rudi Mishe ujaribu tena.');
         return;
       }
 
@@ -87,8 +87,8 @@ export default function CamelAuthCallbackPage() {
           throw new Error(tokens.error_description || tokens.error || 'Token exchange failed');
         }
 
-        const rememberMe = localStorage.getItem('simamia_remember_me') !== 'false';
-        if (!rememberMe) localStorage.setItem('simamia_session_login_signal', 'true');
+        const rememberMe = localStorage.getItem('mishe_remember_me') !== 'false';
+        if (!rememberMe) localStorage.setItem('mishe_session_login_signal', 'true');
         localStorage.setItem(
           'camel_auth_tokens',
           JSON.stringify({
@@ -98,8 +98,8 @@ export default function CamelAuthCallbackPage() {
             scope: tokens.scope ?? ''
           })
         );
-        localStorage.removeItem('simamia_oauth_pending');
-        localStorage.removeItem('simamia_oauth_error');
+        localStorage.removeItem('mishe_oauth_pending');
+        localStorage.removeItem('mishe_oauth_error');
         logClientAuditEvent('auth.sign_in_succeeded', {
           area: 'auth',
           operation: 'oauth_callback'
@@ -136,7 +136,7 @@ export default function CamelAuthCallbackPage() {
                 <Icons.spinner className='size-5 animate-spin' />
               )}
             </span>
-            Simamia
+            Mishe
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -151,7 +151,7 @@ export default function CamelAuthCallbackPage() {
               className='text-primary mt-4 inline-block font-medium underline-offset-4 hover:underline'
               href='/'
             >
-              Rudi Simamia
+              Rudi Mishe
             </a>
           )}
         </CardContent>

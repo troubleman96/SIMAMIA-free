@@ -1,5 +1,5 @@
-import Simamia from './simamia';
+import Mishe from './mishe';
 
 export default function HomePage() {
-  return <Simamia />;
+  return <Mishe />;
 }

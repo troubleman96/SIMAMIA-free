@@ -8,15 +8,15 @@ import { Icons } from '@/components/icons';
 import { logClientAuditEvent, logClientEvent } from '@/lib/observability';
 
 const issuer = process.env.NEXT_PUBLIC_CAMEL_ACCOUNTS_URL || 'https://accounts.camelcreatives.com';
-const clientId = process.env.NEXT_PUBLIC_CAMEL_ACCOUNTS_CLIENT_ID || 'simamia-35sj96';
+const clientId = process.env.NEXT_PUBLIC_CAMEL_ACCOUNTS_CLIENT_ID || 'mishe-35sj96';
 
 export function CamelAuthRoot({ children }: { children: React.ReactNode }) {
   const [providerKey, setProviderKey] = useState(0);
   const [storageReady, setStorageReady] = useState(false);
 
   useEffect(() => {
-    const rememberMe = localStorage.getItem('simamia_remember_me') !== 'false';
-    const hasSessionLogin = sessionStorage.getItem('simamia_session_login') === 'true';
+    const rememberMe = localStorage.getItem('mishe_remember_me') !== 'false';
+    const hasSessionLogin = sessionStorage.getItem('mishe_session_login') === 'true';
     if (!rememberMe && !hasSessionLogin) localStorage.removeItem('camel_auth_tokens');
     setStorageReady(true);
   }, []);
@@ -99,7 +99,7 @@ export function CamelAuthRoot({ children }: { children: React.ReactNode }) {
       };
       if ('locks' in navigator) {
         await navigator.locks.request(
-          'simamia-camel-token-refresh',
+          'mishe-camel-token-refresh',
           { ifAvailable: true },
           async (lock) => {
             if (lock) await refreshInLock();
@@ -112,9 +112,9 @@ export function CamelAuthRoot({ children }: { children: React.ReactNode }) {
       schedule();
     };
     const onStorage = (event: StorageEvent) => {
-      if (event.key === 'simamia_session_login_signal' && event.newValue === 'true') {
-        sessionStorage.setItem('simamia_session_login', 'true');
-        localStorage.removeItem('simamia_session_login_signal');
+      if (event.key === 'mishe_session_login_signal' && event.newValue === 'true') {
+        sessionStorage.setItem('mishe_session_login', 'true');
+        localStorage.removeItem('mishe_session_login_signal');
       }
       if (event.key === 'camel_auth_tokens') {
         setProviderKey((key) => key + 1);
@@ -141,7 +141,7 @@ export function CamelAuthRoot({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function useSimamiaAuth() {
+export function useMisheAuth() {
   return useCamelAuth();
 }
 
@@ -155,7 +155,7 @@ export function CamelAuthScreen({ lang = 'sw' }: { lang?: 'sw' | 'en' }) {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(() => {
     if (typeof window === 'undefined') return true;
-    return window.localStorage.getItem('simamia_remember_me') !== 'false';
+    return window.localStorage.getItem('mishe_remember_me') !== 'false';
   });
   const english = lang === 'en';
 
@@ -190,9 +190,9 @@ export function CamelAuthScreen({ lang = 'sw' }: { lang?: 'sw' | 'en' }) {
           .replace(/\//g, '_')
           .replace(/=+$/, '');
         authorize.searchParams.set('code_challenge', challenge);
-        localStorage.setItem('simamia_remember_me', String(rememberMe));
+        localStorage.setItem('mishe_remember_me', String(rememberMe));
         localStorage.setItem(
-          'simamia_oauth_pending',
+          'mishe_oauth_pending',
           JSON.stringify({ state, verifier, redirectUri })
         );
         return { authorize: authorize.toString(), state };
@@ -216,11 +216,7 @@ export function CamelAuthScreen({ lang = 'sw' }: { lang?: 'sw' | 'en' }) {
 
   const openAuthPopup = () => {
     setGoogleError('');
-    const popup = window.open(
-      'about:blank',
-      'simamia-camel-auth',
-      'popup=yes,width=520,height=680'
-    );
+    const popup = window.open('about:blank', 'mishe-camel-auth', 'popup=yes,width=520,height=680');
     if (!popup) {
       logClientEvent('warn', 'auth.popup_blocked', { area: 'auth', operation: 'open_popup' });
       setGoogleError(
@@ -239,9 +235,9 @@ export function CamelAuthScreen({ lang = 'sw' }: { lang?: 'sw' | 'en' }) {
       window.clearInterval(watcher);
       setGoogleLoading(false);
       setFormLoading(false);
-      const authError = localStorage.getItem('simamia_oauth_error');
+      const authError = localStorage.getItem('mishe_oauth_error');
       if (authError) {
-        localStorage.removeItem('simamia_oauth_error');
+        localStorage.removeItem('mishe_oauth_error');
         setGoogleError(authError);
       }
     }, 500);
@@ -329,12 +325,12 @@ export function CamelAuthScreen({ lang = 'sw' }: { lang?: 'sw' | 'en' }) {
             <div className='bg-primary text-primary-foreground flex size-11 shrink-0 items-center justify-center rounded-xl'>
               <Icons.dashboard className='size-5' />
             </div>
-            <CardTitle className='text-2xl'>Simamia</CardTitle>
+            <CardTitle className='text-2xl'>Mishe</CardTitle>
           </div>
           <CardDescription>
             {english
-              ? 'Continue to Camel Accounts to sign in with Google or your phone number and password, or create a Camel Account. After sign-in, you will set up your Simamia business profile.'
-              : 'Endelea kwenye Camel Accounts kuingia kwa Google au namba ya simu na nenosiri, au kufungua akaunti. Baada ya kuingia utaweka wasifu wa biashara yako ya Simamia.'}
+              ? 'Continue to Camel Accounts to sign in with Google or your phone number and password, or create a Camel Account. After sign-in, you will set up your Mishe business profile.'
+              : 'Endelea kwenye Camel Accounts kuingia kwa Google au namba ya simu na nenosiri, au kufungua akaunti. Baada ya kuingia utaweka wasifu wa biashara yako ya Mishe.'}
           </CardDescription>
         </CardHeader>
         <CardContent className='space-y-4'>
@@ -467,8 +463,8 @@ export function CamelAuthScreen({ lang = 'sw' }: { lang?: 'sw' | 'en' }) {
           )}
           <p className='text-muted-foreground text-center text-xs'>
             {english
-              ? 'Camel Accounts verifies your password. Simamia does not save it.'
-              : 'Camel Accounts huthibitisha nenosiri lako. Simamia halilihifadhi.'}
+              ? 'Camel Accounts verifies your password. Mishe does not save it.'
+              : 'Camel Accounts huthibitisha nenosiri lako. Mishe halilihifadhi.'}
           </p>
         </CardContent>
       </Card>

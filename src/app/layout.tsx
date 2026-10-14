@@ -2,13 +2,13 @@ import type { Metadata, Viewport } from 'next';
 import { fontVariables } from '@/components/themes/font.config';
 import { Toaster } from '@/components/ui/sonner';
 import ThemeProvider from '@/components/themes/theme-provider';
-import { CamelAuthRoot } from '@/features/auth/components/camel-auth-screen';
-import { SimamiaAnalytics } from '@/features/auth/components/camel-analytics';
+import { CamelAuthRoot } from '@/features/auth/components/mishe-auth-screen';
+import { MisheAnalytics } from '@/features/auth/components/mishe-analytics';
 import { cn } from '@/lib/utils';
 import '../styles/globals.css';
 
 export const metadata: Metadata = {
-  title: 'Simamia — Huduma kwa mpangilio',
+  title: 'Mishe — Huduma kwa mpangilio',
   description: 'Kiswahili-first service management for Tanzanian businesses.',
   robots: { index: false, follow: false }
 };
@@ -31,7 +31,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           disableTransitionOnChange
         >
           <CamelAuthRoot>
-            <SimamiaAnalytics />
+            <MisheAnalytics />
             {children}
             <Toaster />
           </CamelAuthRoot>

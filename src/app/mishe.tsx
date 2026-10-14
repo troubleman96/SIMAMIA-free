@@ -3,10 +3,10 @@
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { Icons } from '@/components/icons';
 import { ThemeModeToggle } from '@/components/themes/theme-mode-toggle';
-import { CamelAuthScreen, useSimamiaAuth } from '@/features/auth/components/camel-auth-screen';
+import { MisheAuthScreen, useMisheAuth } from '@/features/auth/components/mishe-auth-screen';
 import {
   BusinessSetup,
-  type SimamiaBusinessProfile
+  type MisheBusinessProfile
 } from '@/features/onboarding/components/business-setup';
 import {
   businessTemplates,
@@ -137,13 +137,13 @@ type FormKind =
   | null;
 
 const API_BASE_URL = (
-  process.env.NEXT_PUBLIC_SIMAMIA_API_URL ||
+  process.env.NEXT_PUBLIC_MISHE_API_URL ||
   process.env.NEXT_PUBLIC_HUDUMADESK_API_URL ||
   'http://localhost:8080/api/v1'
 ).replace(/\/+$/, '');
 
 function readWorkspaceCache(kind: 'prefs' | 'demo', accountKey: string): string | null {
-  const currentKey = `simamia-${kind}:${accountKey}`;
+  const currentKey = `mishe-${kind}:${accountKey}`;
   const currentValue = localStorage.getItem(currentKey);
   if (currentValue !== null) return currentValue;
   const legacyKey = `hudumadesk-${kind}:${accountKey}`;
@@ -516,7 +516,7 @@ const words = {
     customersDesc: 'Taarifa na historia ya wateja wako.',
     servicesDesc: 'Huduma, bei na muda wa utekelezaji.',
     scheduleDesc: 'Panga kazi na mgawo wa timu.',
-    teamDesc: 'Simamia watu wanaotoa huduma.',
+    teamDesc: 'Mishe watu wanaotoa huduma.',
     paymentsDesc: 'Fuatilia malipo na salio la maagizo.',
     debtsDesc: 'Fuatilia salio linalodaiwa kwa wateja na maagizo.',
     expensesDesc: 'Rekodi na pitia matumizi ya biashara.',
@@ -736,7 +736,7 @@ function downloadOrdersCsv(exportRows: Order[]) {
   const href = URL.createObjectURL(new Blob(['\ufeff', csv], { type: 'text/csv;charset=utf-8' }));
   const anchor = document.createElement('a');
   anchor.href = href;
-  anchor.download = 'simamia-orders.csv';
+  anchor.download = 'mishe-orders.csv';
   anchor.click();
   URL.revokeObjectURL(href);
 }
@@ -873,8 +873,8 @@ function SectionHeading({
   );
 }
 
-export default function Simamia() {
-  const { user, authenticated, loading: authLoading, logout, getAccessToken } = useSimamiaAuth();
+export default function Mishe() {
+  const { user, authenticated, loading: authLoading, logout, getAccessToken } = useMisheAuth();
   const [lang, setLang] = useState<Lang>('sw');
   const [page, setPage] = useState<Page>('overview');
   const [orders, setOrders] = useState<Order[]>(seedOrders);
@@ -883,7 +883,7 @@ export default function Simamia() {
   const [staff, setStaff] = useState<Staff[]>(seedStaff);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [businessName, setBusinessName] = useState('Mwangaza Demo Services');
-  const [businessProfile, setBusinessProfile] = useState<SimamiaBusinessProfile | null>(null);
+  const [businessProfile, setBusinessProfile] = useState<MisheBusinessProfile | null>(null);
   const [profileReady, setProfileReady] = useState(false);
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
@@ -895,7 +895,7 @@ export default function Simamia() {
   const [assistantAnswer, setAssistantAnswer] = useState('');
   const t = (key: keyof typeof words.sw) => words[lang][key] ?? words.en[key];
   const accountKey = user?.sub ? encodeURIComponent(user.sub) : '';
-  const profileStorageKey = accountKey ? `simamia-business-profile:${accountKey}` : '';
+  const profileStorageKey = accountKey ? `mishe-business-profile:${accountKey}` : '';
   const activeTemplate = getBusinessTemplate(businessProfile?.primaryTemplate);
   const statuses = (
     activeTemplate.statuses.length ? activeTemplate.statuses : defaultStatuses
@@ -910,16 +910,16 @@ export default function Simamia() {
     }
     let active = true;
     setProfileReady(false);
-    let cached: SimamiaBusinessProfile | null = null;
+    let cached: MisheBusinessProfile | null = null;
     try {
       const raw = localStorage.getItem(profileStorageKey);
-      cached = raw ? (JSON.parse(raw) as SimamiaBusinessProfile) : null;
+      cached = raw ? (JSON.parse(raw) as MisheBusinessProfile) : null;
     } catch {
       cached = null;
     }
     const loadProfile = async () => {
       try {
-        const profiles = await fetchApiRecords<SimamiaBusinessProfile>(
+        const profiles = await fetchApiRecords<MisheBusinessProfile>(
           'businesses',
           getAccessToken()
         );
@@ -1026,13 +1026,13 @@ export default function Simamia() {
       return;
     if (loaded) {
       localStorage.setItem(
-        `simamia-prefs:${accountKey}`,
+        `mishe-prefs:${accountKey}`,
         JSON.stringify({ language: lang, businessName })
       );
     }
     if (loaded && !apiConnected) {
       localStorage.setItem(
-        `simamia-demo:${accountKey}`,
+        `mishe-demo:${accountKey}`,
         JSON.stringify({
           orders,
           customers,
@@ -1398,7 +1398,7 @@ export default function Simamia() {
       </main>
     );
   }
-  if (!authenticated || !user?.sub) return <CamelAuthScreen lang={lang} />;
+  if (!authenticated || !user?.sub) return <MisheAuthScreen lang={lang} />;
   if (!businessProfile || businessProfile.ownerSub !== user.sub) {
     return (
       <BusinessSetup
@@ -1408,14 +1408,14 @@ export default function Simamia() {
         lang={lang}
         onComplete={async (profile) => {
           const savedProfile = apiConnected
-            ? await createApiRecord<SimamiaBusinessProfile>(
+            ? await createApiRecord<MisheBusinessProfile>(
                 'businesses',
                 { ...profile },
                 getAccessToken()
               )
             : profile;
           localStorage.setItem(
-            `simamia-business-profile:${encodeURIComponent(user.sub)}`,
+            `mishe-business-profile:${encodeURIComponent(user.sub)}`,
             JSON.stringify(savedProfile)
           );
           setBusinessProfile(savedProfile);
@@ -1440,7 +1440,7 @@ export default function Simamia() {
                   H
                 </span>
                 <span className='grid flex-1 text-left text-sm leading-tight'>
-                  <span className='truncate font-semibold'>Simamia</span>
+                  <span className='truncate font-semibold'>Mishe</span>
                   <span className='truncate text-xs text-muted-foreground'>{businessName}</span>
                 </span>
                 <Icons.chevronsDown className='ml-auto size-4' />
@@ -1671,7 +1671,7 @@ export default function Simamia() {
               setBusinessName={setBusinessName}
               canReset={!apiConnected}
               onReset={() => {
-                localStorage.removeItem(`simamia-demo:${accountKey}`);
+                localStorage.removeItem(`mishe-demo:${accountKey}`);
                 localStorage.removeItem(`hudumadesk-demo:${accountKey}`);
                 localStorage.removeItem('hudumadesk-demo-v1');
                 setOrders(seedOrders);
@@ -2894,7 +2894,7 @@ function ExpensesPage({
     const url = URL.createObjectURL(new Blob(['\ufeff', csv], { type: 'text/csv;charset=utf-8' }));
     const anchor = document.createElement('a');
     anchor.href = url;
-    anchor.download = 'simamia-expenses.csv';
+    anchor.download = 'mishe-expenses.csv';
     anchor.click();
     URL.revokeObjectURL(url);
   };
@@ -3233,7 +3233,7 @@ function InvoicesPage({
     const href = URL.createObjectURL(new Blob(['\ufeff', csv], { type: 'text/csv;charset=utf-8' }));
     const anchor = document.createElement('a');
     anchor.href = href;
-    anchor.download = 'simamia-invoices.csv';
+    anchor.download = 'mishe-invoices.csv';
     anchor.click();
     URL.revokeObjectURL(href);
   };

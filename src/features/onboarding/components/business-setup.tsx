@@ -9,7 +9,7 @@ import { Icons } from '@/components/icons';
 import { cn } from '@/lib/utils';
 import { businessTemplates, type BusinessTemplate } from '../business-templates';
 
-export interface SimamiaBusinessProfile {
+export interface MisheBusinessProfile {
   ownerSub: string;
   businessName: string;
   phone: string;
@@ -29,7 +29,7 @@ export function BusinessSetup({
   ownerName?: string;
   ownerPhone?: string;
   lang: 'sw' | 'en';
-  onComplete: (profile: SimamiaBusinessProfile) => Promise<void> | void;
+  onComplete: (profile: MisheBusinessProfile) => Promise<void> | void;
 }) {
   const [selected, setSelected] = useState('general');
   const [businessName, setBusinessName] = useState('');
@@ -80,7 +80,7 @@ export function BusinessSetup({
       <div className='mx-auto flex w-full max-w-5xl flex-col gap-4 sm:gap-6'>
         <header className='space-y-1'>
           <p className='text-muted-foreground text-sm'>
-            {sw ? 'Karibu Simamia' : 'Welcome to Simamia'}
+            {sw ? 'Karibu Mishe' : 'Welcome to Mishe'}
           </p>
           <h1 className='text-2xl font-semibold tracking-tight sm:text-3xl'>
             {sw ? 'Tengeneza wasifu wa biashara' : 'Set up your business profile'}
@@ -233,7 +233,7 @@ export function BusinessSetup({
                   ) : (
                     <IconCheck className='mr-2 size-4' />
                   )}
-                  {sw ? 'Anza kutumia Simamia' : 'Start using Simamia'}
+                  {sw ? 'Anza kutumia Mishe' : 'Start using Mishe'}
                 </Button>
               </div>
             </CardContent>
