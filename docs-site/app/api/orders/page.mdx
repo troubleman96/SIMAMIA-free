@@ -16,8 +16,8 @@ Orders represent the work unit in the current general API model. A business temp
 `customer`, `service`, and positive `amount` are required. `status`, `paid`, and `currency` default to `New`, `0`, and `TZS` respectively.
 
 ```bash
-curl -X POST "$SIMAMIA_API/orders" \
-  -H "Authorization: Bearer $SIMAMIA_TOKEN" \
+curl -X POST "$MISHE_API/orders" \
+  -H "Authorization: Bearer $MISHE_TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{
     "customer":"Asha Mushi",
@@ -49,8 +49,8 @@ Additional workflow-specific properties are retained, such as `vehicleRegistrati
 ## List by status
 
 ```bash
-curl --get "$SIMAMIA_API/orders" \
-  -H "Authorization: Bearer $SIMAMIA_TOKEN" \
+curl --get "$MISHE_API/orders" \
+  -H "Authorization: Bearer $MISHE_TOKEN" \
   --data-urlencode 'status=In progress' \
   --data-urlencode 'page=1' --data-urlencode 'page_size=25'
 ```
@@ -60,8 +60,8 @@ Status filtering is exact and case-sensitive. `q` is a case-insensitive search a
 ## Advance work and record payment
 
 ```bash
-curl -X PATCH "$SIMAMIA_API/orders/ORD-0248" \
-  -H "Authorization: Bearer $SIMAMIA_TOKEN" \
+curl -X PATCH "$MISHE_API/orders/ORD-0248" \
+  -H "Authorization: Bearer $MISHE_TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"status":"Ready","paid":10000,"method":"M-Pesa"}'
 ```
@@ -71,11 +71,11 @@ This changes the operational record and therefore the balance returned by `GET /
 ## Read or delete
 
 ```bash
-curl "$SIMAMIA_API/orders/ORD-0248" \
-  -H "Authorization: Bearer $SIMAMIA_TOKEN"
+curl "$MISHE_API/orders/ORD-0248" \
+  -H "Authorization: Bearer $MISHE_TOKEN"
 
-curl -X DELETE "$SIMAMIA_API/orders/ORD-0248" \
-  -H "Authorization: Bearer $SIMAMIA_TOKEN"
+curl -X DELETE "$MISHE_API/orders/ORD-0248" \
+  -H "Authorization: Bearer $MISHE_TOKEN"
 ```
 
 Deleting an order also removes its corresponding row from the derived payment ledger. The API has no order archive or restore operation.

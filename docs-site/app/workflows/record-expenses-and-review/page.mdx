@@ -24,8 +24,8 @@ flowchart LR
 Send a description, category, positive amount, and date to `POST /expenses`. Use a consistent date representation, preferably `YYYY-MM-DD`; the API only checks for a non-empty date string.
 
 ```bash
-curl -X POST "$SIMAMIA_API/expenses" \
-  -H "Authorization: Bearer $SIMAMIA_TOKEN" \
+curl -X POST "$MISHE_API/expenses" \
+  -H "Authorization: Bearer $MISHE_TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"description":"Shop rent","category":"Rent","amount":650000,"date":"2026-10-11","method":"Bank transfer"}'
 ```
@@ -35,11 +35,11 @@ curl -X POST "$SIMAMIA_API/expenses" \
 Fetch expenses and payment balances separately:
 
 ```bash
-curl "$SIMAMIA_API/expenses?page=1&page_size=100" \
-  -H "Authorization: Bearer $SIMAMIA_TOKEN"
+curl "$MISHE_API/expenses?page=1&page_size=100" \
+  -H "Authorization: Bearer $MISHE_TOKEN"
 
-curl "$SIMAMIA_API/payments" \
-  -H "Authorization: Bearer $SIMAMIA_TOKEN"
+curl "$MISHE_API/payments" \
+  -H "Authorization: Bearer $MISHE_TOKEN"
 ```
 
 Compute totals in a trusted reporting layer. Expenses can be paginated and need aggregation across pages when there are more than 100 records. The payments endpoint currently returns all balances in one response.

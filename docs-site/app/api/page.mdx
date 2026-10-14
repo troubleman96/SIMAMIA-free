@@ -14,9 +14,9 @@ New to the API? Start with [How the API works](/api/how-it-works) for the concep
 | Environment | Base URL |
 | --- | --- |
 | Local | `http://localhost:8080/api/v1` |
-| Production | `https://api.simamia.online/api/v1` |
+| Production | `https://api.mishe.online/api/v1` |
 
-All paths below are relative to the base URL. For example, production health is `https://api.simamia.online/api/v1/health`.
+All paths below are relative to the base URL. For example, production health is `https://api.mishe.online/api/v1/health`.
 
 ## Endpoint index
 
@@ -31,20 +31,20 @@ All paths below are relative to the base URL. For example, production health is 
 | `payments` | `GET /payments` | — | — | — | — |
 | health | `GET /health` | — | — | — | — |
 
-The private operator surface is documented separately at [Private admin API](/api/admin); those routes use a server-only admin key and are intended for the Simamia admin service.
+The private operator surface is documented separately at [Private admin API](/api/admin); those routes use a server-only admin key and are intended for the Mishe admin service.
 
 The six resource collections (`businesses`, `customers`, `services`, `orders`, `team`, `expenses`) each support all five collection and item operations shown above. `payments` is read-only. `GET /health` is public; every other operation requires a Camel Accounts access token.
 
 ## Interactive reference and downloadable contract
 
-Open the [Interactive Swagger UI](/api/swagger) to browse every request, schema, response, and status code. The same [OpenAPI 3.1 YAML](/openapi.yaml) can be imported into Swagger Editor, Postman, Insomnia, or a client generator. The source of truth is [`api/openapi.yaml`](https://github.com/troubleman96/SIMAMIA/blob/main/api/openapi.yaml) in the Simamia repository.
+Open the [Interactive Swagger UI](/api/swagger) to browse every request, schema, response, and status code. The same [OpenAPI 3.1 YAML](/openapi.yaml) can be imported into Swagger Editor, Postman, Insomnia, or a client generator. The source of truth is [`api/openapi.yaml`](https://github.com/troubleman96/MISHE/blob/main/api/openapi.yaml) in the Mishe repository.
 
 ## Request lifecycle
 
 ```mermaid
 sequenceDiagram
   actor Client
-  participant API as Simamia Go API
+  participant API as Mishe Go API
   participant Accounts as Camel Accounts
   participant Store as SQLite record store
   Client->>API: Request with Bearer token and optional X-Request-ID
@@ -137,4 +137,4 @@ See [responses and errors](/concepts/responses-errors), then choose a resource:
 
 ## OpenAPI contract
 
-The versioned OpenAPI 3.1 contract is maintained in the Simamia repository at [`api/openapi.yaml`](https://github.com/troubleman96/SIMAMIA/blob/main/api/openapi.yaml) and mirrored as a [downloadable YAML file](/openapi.yaml). The resource guides explain runtime behavior, defaults, validation limits, and safe usage patterns that are easy to miss from schemas alone.
+The versioned OpenAPI 3.1 contract is maintained in the Mishe repository at [`api/openapi.yaml`](https://github.com/troubleman96/MISHE/blob/main/api/openapi.yaml) and mirrored as a [downloadable YAML file](/openapi.yaml). The resource guides explain runtime behavior, defaults, validation limits, and safe usage patterns that are easy to miss from schemas alone.

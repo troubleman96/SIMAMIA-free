@@ -14,8 +14,8 @@ Customers are account-owned contact records. `name` and `phone` are required. Ot
 ## Create
 
 ```bash
-curl -X POST "$SIMAMIA_API/customers" \
-  -H "Authorization: Bearer $SIMAMIA_TOKEN" \
+curl -X POST "$MISHE_API/customers" \
+  -H "Authorization: Bearer $MISHE_TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"name":"Asha Mushi","phone":"+255 712 345 678","email":"asha@example.test","location":"Kinondoni, Dar es Salaam"}'
 ```
@@ -32,8 +32,8 @@ The API does not check that phone numbers are unique.
 ## List and search
 
 ```bash
-curl --get "$SIMAMIA_API/customers" \
-  -H "Authorization: Bearer $SIMAMIA_TOKEN" \
+curl --get "$MISHE_API/customers" \
+  -H "Authorization: Bearer $MISHE_TOKEN" \
   --data-urlencode 'q=asha' --data-urlencode 'page=1' --data-urlencode 'page_size=20'
 ```
 
@@ -42,13 +42,13 @@ curl --get "$SIMAMIA_API/customers" \
 ## Update and delete
 
 ```bash
-curl -X PATCH "$SIMAMIA_API/customers/CUS-0087" \
-  -H "Authorization: Bearer $SIMAMIA_TOKEN" \
+curl -X PATCH "$MISHE_API/customers/CUS-0087" \
+  -H "Authorization: Bearer $MISHE_TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"phone":"+255 713 000 111","location":"Mikocheni"}'
 
-curl -X DELETE "$SIMAMIA_API/customers/CUS-0087" \
-  -H "Authorization: Bearer $SIMAMIA_TOKEN"
+curl -X DELETE "$MISHE_API/customers/CUS-0087" \
+  -H "Authorization: Bearer $MISHE_TOKEN"
 ```
 
 Patch merges with the existing record, so `name` remains present when only `phone` changes. Existing orders are not rewritten or deleted when a customer is removed.

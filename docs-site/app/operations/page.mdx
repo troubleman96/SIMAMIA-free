@@ -1,6 +1,6 @@
 ---
 title: Operations
-description: Configure, deploy, monitor, and back up the Simamia API.
+description: Configure, deploy, monitor, and back up the Mishe API.
 ---
 
 import { Cards } from 'nextra/components'
@@ -19,10 +19,10 @@ Operational guides for teams running the current Go API.
 
 - Set `CAMEL_ACCOUNTS_URL` to the trusted Camel Accounts issuer.
 - Set `CORS_ALLOWED_ORIGINS` to the exact production app origin.
-- Persist `/data/simamia.db` on durable storage and back it up off-server.
+- Persist `/data/mishe.db` on durable storage and back it up off-server.
 - Terminate TLS at the documented reverse proxy and expose only the proxy to the public network.
 - Monitor `/api/v1/health`, application logs, disk space, and backup success.
 - Run one API instance while SQLite is the storage backend.
 - Keep example credentials, database files, and tokens out of source control and logs.
 
-See the [Simamia monorepo deployment guide](https://github.com/troubleman96/SIMAMIA/blob/main/docs/deployment.md) for the existing VPS topology.
+See the [Mishe monorepo deployment guide](https://github.com/troubleman96/MISHE/blob/main/docs/deployment.md) for the existing VPS topology.

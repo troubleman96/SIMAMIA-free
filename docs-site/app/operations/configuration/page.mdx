@@ -10,12 +10,12 @@ description: API environment variables, database paths, CORS, and health behavio
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `PORT` | `8080` | TCP port the API listens on at `0.0.0.0`. |
-| `SIMAMIA_DB_PATH` | `data/simamia.db` | SQLite database path relative to the API working directory. |
-| `HUDUMADESK_DB_PATH` | unset | Legacy fallback path used only when `SIMAMIA_DB_PATH` is unset. Existing `data/hudumadesk.db` may be selected for compatibility when present. |
+| `MISHE_DB_PATH` | `data/mishe.db` | SQLite database path relative to the API working directory. |
+| `HUDUMADESK_DB_PATH` | unset | Legacy fallback path used only when `MISHE_DB_PATH` is unset. Existing `data/hudumadesk.db` may be selected for compatibility when present. |
 | `CAMEL_ACCOUNTS_URL` | `https://accounts.camelcreatives.com` | OAuth issuer base URL; API calls its `/oauth/userinfo` endpoint. |
 | `CORS_ALLOWED_ORIGINS` | `*` when unset | Comma-separated exact browser origins, or `*`. Set explicitly in production. |
 
-The root Compose service sets `PORT=8080`, `SIMAMIA_DB_PATH=/data/simamia.db`, and a persistent volume at `/data`. The application frontend receives its API URL as a public build-time variable, `NEXT_PUBLIC_SIMAMIA_API_URL`.
+The root Compose service sets `PORT=8080`, `MISHE_DB_PATH=/data/mishe.db`, and a persistent volume at `/data`. The application frontend receives its API URL as a public build-time variable, `NEXT_PUBLIC_MISHE_API_URL`.
 
 ## Database setup
 
@@ -28,7 +28,7 @@ At startup, the API seeds illustrative rows with `owner_sub=local-preview` when 
 Set an exact allowlist such as:
 
 ```env
-CORS_ALLOWED_ORIGINS=https://app.simamia.online
+CORS_ALLOWED_ORIGINS=https://app.mishe.online
 ```
 
 The API returns CORS headers only when the request's `Origin` matches an allowed item. When unset, it allows `*`; that is convenient for local browser development but too broad for production. CORS is a browser policy, not authentication: non-browser clients still need a valid token.

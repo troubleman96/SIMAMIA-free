@@ -1,15 +1,15 @@
 ---
 title: How the API works
-description: A step-by-step guide to Simamia API authentication, records, jobs, balances, and errors.
+description: A step-by-step guide to Mishe API authentication, records, jobs, balances, and errors.
 ---
 
-# How the Simamia API works
+# How the Mishe API works
 
 This page is a reading guide for people who want to understand the API before integrating it. It explains what happens when a request arrives, what the records mean, and how the usual service workflow fits together.
 
 ## The short version
 
-Simamia has a web app and a Go API. The web app signs a user in with Camel Accounts. When the app asks the API for business data, it sends a Camel Accounts **access token**. The API checks that token with Camel Accounts, gets the account's stable subject ID, then reads or changes SQLite records owned by that subject.
+Mishe has a web app and a Go API. The web app signs a user in with Camel Accounts. When the app asks the API for business data, it sends a Camel Accounts **access token**. The API checks that token with Camel Accounts, gets the account's stable subject ID, then reads or changes SQLite records owned by that subject.
 
 An ordinary service workflow uses three kinds of records:
 
@@ -22,7 +22,7 @@ The API also stores a business profile, team directory entries, and expenses. It
 ```mermaid
 flowchart LR
   Person[Owner or app] -->|sign in| Accounts[Camel Accounts]
-  Person -->|HTTPS + access token| API[Simamia Go API]
+  Person -->|HTTPS + access token| API[Mishe Go API]
   API -->|check token and get subject| Accounts
   API -->|read or write subject-owned JSON records| DB[(SQLite)]
   DB --> API -->|data and request metadata| Person
@@ -35,7 +35,7 @@ All API routes begin with a base URL:
 | Where you run it | Base URL |
 | --- | --- |
 | Local development | `http://localhost:8080/api/v1` |
-| Production | `https://api.simamia.online/api/v1` |
+| Production | `https://api.mishe.online/api/v1` |
 
 `/api/v1` is the versioned part. A route such as `GET /customers` means the full local address is `http://localhost:8080/api/v1/customers`.
 
@@ -60,7 +60,7 @@ Most calls follow this sequence:
 ```mermaid
 sequenceDiagram
   actor Client
-  participant API as Simamia API
+  participant API as Mishe API
   participant CA as Camel Accounts
   participant DB as SQLite
   Client->>API: GET /orders with Authorization: Bearer token
@@ -108,7 +108,7 @@ For example, listing customers returns:
 }
 ```
 
-`request_id` helps identify a particular call in logs and support conversations. The API accepts an optional `X-Request-ID` header; if you omit it, the API generates one. The ID is echoed in the response header and JSON metadata; CORS exposes the response header to the Simamia app. List calls include pagination metadata even when the result is empty.
+`request_id` helps identify a particular call in logs and support conversations. The API accepts an optional `X-Request-ID` header; if you omit it, the API generates one. The ID is echoed in the response header and JSON metadata; CORS exposes the response header to the Mishe app. List calls include pagination metadata even when the result is empty.
 
 Errors use a different shape: `error.code` is the value your integration should use to decide what happened; `error.message` is for people diagnosing it. Empty editable collection results report `total: 0` and `total_pages: 0`; `/payments` is a special case and reports `total_pages: 1` even when empty.
 
@@ -117,15 +117,15 @@ Errors use a different shape: `error.code` is the value your integration should 
 The most useful first workflow is to create a customer, a service, then an order. In these examples, set your base URL and access token first:
 
 ```bash
-export SIMAMIA_API='http://localhost:8080/api/v1'
-export SIMAMIA_TOKEN='your-Camel-Accounts-access-token'
+export MISHE_API='http://localhost:8080/api/v1'
+export MISHE_TOKEN='your-Camel-Accounts-access-token'
 ```
 
 ### Add a customer
 
 ```bash
-curl -X POST "$SIMAMIA_API/customers" \
-  -H "Authorization: Bearer $SIMAMIA_TOKEN" \
+curl -X POST "$MISHE_API/customers" \
+  -H "Authorization: Bearer $MISHE_TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"name":"Asha Mushi","phone":"+255 712 345 678","location":"Kinondoni"}'
 ```
@@ -135,8 +135,8 @@ The API requires a non-empty `name` and `phone`, assigns a `CUS-...` ID, and sav
 ### Add a service
 
 ```bash
-curl -X POST "$SIMAMIA_API/services" \
-  -H "Authorization: Bearer $SIMAMIA_TOKEN" \
+curl -X POST "$MISHE_API/services" \
+  -H "Authorization: Bearer $MISHE_TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"name":"Wash and fold","category":"Laundry","duration":"24 hours","price":25000}'
 ```
@@ -146,8 +146,8 @@ The API requires a non-empty `name` and a `price` greater than zero. If you omit
 ### Open an order
 
 ```bash
-curl -X POST "$SIMAMIA_API/orders" \
-  -H "Authorization: Bearer $SIMAMIA_TOKEN" \
+curl -X POST "$MISHE_API/orders" \
+  -H "Authorization: Bearer $MISHE_TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"customer":"Asha Mushi","phone":"+255 712 345 678","service":"Wash and fold","date":"2026-10-12T09:00:00+03:00","amount":25000,"assignee":"Owner"}'
 ```
@@ -175,13 +175,13 @@ flowchart TD
 An order is the record the app uses for a job or other unit of work. Update it with `PATCH /orders/{id}` as its status or paid amount changes:
 
 ```bash
-curl -X PATCH "$SIMAMIA_API/orders/ORD-0249" \
-  -H "Authorization: Bearer $SIMAMIA_TOKEN" \
+curl -X PATCH "$MISHE_API/orders/ORD-0249" \
+  -H "Authorization: Bearer $MISHE_TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"status":"In progress"}'
 
-curl -X PATCH "$SIMAMIA_API/orders/ORD-0249" \
-  -H "Authorization: Bearer $SIMAMIA_TOKEN" \
+curl -X PATCH "$MISHE_API/orders/ORD-0249" \
+  -H "Authorization: Bearer $MISHE_TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"status":"Ready","paid":10000,"method":"M-Pesa"}'
 ```
@@ -206,8 +206,8 @@ So if an order is `amount: 25000` and `paid: 10000`, `/payments` reports `due: 1
 An expense is a business outflow, such as rent or supplies. It is not a payment record and does not change an order balance.
 
 ```bash
-curl -X POST "$SIMAMIA_API/expenses" \
-  -H "Authorization: Bearer $SIMAMIA_TOKEN" \
+curl -X POST "$MISHE_API/expenses" \
+  -H "Authorization: Bearer $MISHE_TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"description":"Detergent","category":"Supplies","amount":85000,"date":"2026-10-11","method":"Cash"}'
 ```
@@ -233,8 +233,8 @@ The collection names are `businesses`, `customers`, `services`, `orders`, `team`
 For list routes, `q` does a case-insensitive text search through the serialized record, `status` does an exact and case-sensitive match, and `page`/`page_size` control pagination. Filters run before pagination, results are newest first, and there are no sort, date-range, or category filters. `status` has no effect on a resource whose records have no `status` property. `/payments` ignores these query parameters and returns all derived rows:
 
 ```bash
-curl --get "$SIMAMIA_API/orders" \
-  -H "Authorization: Bearer $SIMAMIA_TOKEN" \
+curl --get "$MISHE_API/orders" \
+  -H "Authorization: Bearer $MISHE_TOKEN" \
   --data-urlencode 'q=Asha' \
   --data-urlencode 'status=Ready' \
   --data-urlencode 'page=1' \

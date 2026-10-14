@@ -1,6 +1,6 @@
 ---
 title: Businesses
-description: Create and manage the Simamia business profile linked to an account.
+description: Create and manage the Mishe business profile linked to an account.
 ---
 
 # Businesses
@@ -13,7 +13,7 @@ The app stores each onboarding profile in `businesses`. A profile captures the p
 
 ## Create a profile
 
-The current API has no business-specific required fields beyond the top-level JSON object requirement. For a useful Simamia profile, send:
+The current API has no business-specific required fields beyond the top-level JSON object requirement. For a useful Mishe profile, send:
 
 | Field | Type | Suggested | Meaning |
 | --- | --- | --- | --- |
@@ -26,8 +26,8 @@ The current API has no business-specific required fields beyond the top-level JS
 Template IDs: `general`, `salon`, `garage`, `phone_repair`, `laundry`, `butcher`, `mobile_money`, and `tailor`.
 
 ```bash
-curl -X POST "$SIMAMIA_API/businesses" \
-  -H "Authorization: Bearer $SIMAMIA_TOKEN" \
+curl -X POST "$MISHE_API/businesses" \
+  -H "Authorization: Bearer $MISHE_TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"businessName":"Amani Laundry","phone":"+255712345678","primaryTemplate":"laundry","templateVersion":1,"createdAt":"2026-10-11T11:00:00+03:00"}'
 ```
@@ -37,15 +37,15 @@ The response includes generated `id`, `owner_sub`, and the `ownerSub` compatibil
 ## Read, update, delete
 
 ```bash
-curl "$SIMAMIA_API/businesses/BIZ-0001" -H "Authorization: Bearer $SIMAMIA_TOKEN"
+curl "$MISHE_API/businesses/BIZ-0001" -H "Authorization: Bearer $MISHE_TOKEN"
 
-curl -X PATCH "$SIMAMIA_API/businesses/BIZ-0001" \
-  -H "Authorization: Bearer $SIMAMIA_TOKEN" \
+curl -X PATCH "$MISHE_API/businesses/BIZ-0001" \
+  -H "Authorization: Bearer $MISHE_TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"businessName":"Amani Laundry & Shoe Care"}'
 
-curl -X DELETE "$SIMAMIA_API/businesses/BIZ-0001" \
-  -H "Authorization: Bearer $SIMAMIA_TOKEN"
+curl -X DELETE "$MISHE_API/businesses/BIZ-0001" \
+  -H "Authorization: Bearer $MISHE_TOKEN"
 ```
 
 Deleting a profile does not delete its orders, customers, services, team, or expenses. There is no business-level cascade or foreign-key relationship in the current schema.

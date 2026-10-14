@@ -10,7 +10,7 @@ This guide walks through a common service flow. The API stores customer/service 
 ```mermaid
 sequenceDiagram
   actor Owner
-  participant API as Simamia API
+  participant API as Mishe API
   participant DB as SQLite
   Owner->>API: POST /businesses (create profile)
   API->>DB: Save owner-scoped business
@@ -42,11 +42,11 @@ The app usually creates the profile during first-use onboarding. For API integra
 Create a customer with `name` and `phone`, then create a service with `name` and a positive `price`.
 
 ```bash
-curl -X POST "$SIMAMIA_API/customers" -H "Authorization: Bearer $SIMAMIA_TOKEN" \
+curl -X POST "$MISHE_API/customers" -H "Authorization: Bearer $MISHE_TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"name":"Asha Mushi","phone":"+255 712 345 678"}'
 
-curl -X POST "$SIMAMIA_API/services" -H "Authorization: Bearer $SIMAMIA_TOKEN" \
+curl -X POST "$MISHE_API/services" -H "Authorization: Bearer $MISHE_TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"name":"Wash and fold","price":25000,"category":"Laundry"}'
 ```
@@ -56,7 +56,7 @@ Save the IDs from both responses in your application. The current order schema d
 ## Step 3: Open the work order
 
 ```bash
-curl -X POST "$SIMAMIA_API/orders" -H "Authorization: Bearer $SIMAMIA_TOKEN" \
+curl -X POST "$MISHE_API/orders" -H "Authorization: Bearer $MISHE_TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"customer":"Asha Mushi","service":"Wash and fold","date":"2026-10-12T09:00:00+03:00","amount":25000,"status":"New","paid":0,"method":"Not paid"}'
 ```
@@ -68,13 +68,13 @@ The API returns an ID such as `ORD-0249`. It adds `currency: TZS`, `status: New`
 Use `PATCH` as the work proceeds:
 
 ```bash
-curl -X PATCH "$SIMAMIA_API/orders/ORD-0249" \
-  -H "Authorization: Bearer $SIMAMIA_TOKEN" \
+curl -X PATCH "$MISHE_API/orders/ORD-0249" \
+  -H "Authorization: Bearer $MISHE_TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"status":"In progress"}'
 
-curl -X PATCH "$SIMAMIA_API/orders/ORD-0249" \
-  -H "Authorization: Bearer $SIMAMIA_TOKEN" \
+curl -X PATCH "$MISHE_API/orders/ORD-0249" \
+  -H "Authorization: Bearer $MISHE_TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"status":"Ready"}'
 ```
@@ -86,8 +86,8 @@ The API accepts arbitrary status strings. Define your allowed labels in the UI/t
 After an actual payment has been independently confirmed, patch the order's `paid` and `method` fields:
 
 ```bash
-curl -X PATCH "$SIMAMIA_API/orders/ORD-0249" \
-  -H "Authorization: Bearer $SIMAMIA_TOKEN" \
+curl -X PATCH "$MISHE_API/orders/ORD-0249" \
+  -H "Authorization: Bearer $MISHE_TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"paid":10000,"method":"M-Pesa"}'
 ```

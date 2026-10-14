@@ -1,15 +1,15 @@
 ---
-title: Simamia API documentation
-description: Build integrations on Simamia's service management API.
+title: Mishe API documentation
+description: Build integrations on Mishe's service management API.
 ---
 
 import { Cards } from 'nextra/components'
 
-# Simamia API
+# Mishe API
 
 ## Operational workflows, clearly connected
 
-This site explains how to authenticate, create a business profile, manage customers and work, track costs, and read the balances Simamia derives from work records.
+This site explains how to authenticate, create a business profile, manage customers and work, track costs, and read the balances Mishe derives from work records.
 
 <Cards>
   <Cards.Card title="Start integrating" href="/getting-started">Configure a client and make your first authenticated request.</Cards.Card>
@@ -29,7 +29,7 @@ The API does not currently move money, send SMS or email, call AI providers, iss
 
 ```mermaid
 flowchart LR
-  Client[Web app or integration] -->|HTTPS + Bearer token| API[Simamia Go API]
+  Client[Web app or integration] -->|HTTPS + Bearer token| API[Mishe Go API]
   API -->|GET /oauth/userinfo| Accounts[Camel Accounts]
   Accounts -->|Account subject| API
   API -->|owner_sub filter| SQLite[(SQLite records)]
@@ -49,4 +49,4 @@ flowchart LR
 | Follow the customer-to-order sequence | [Create and complete a job](/workflows/create-and-complete-job) |
 | Configure or operate the service | [Operations](/operations) |
 
-The content is maintained alongside the Simamia API implementation. The OpenAPI contract is available at [`api/openapi.yaml`](https://github.com/troubleman96/SIMAMIA/blob/main/api/openapi.yaml).
+The content is maintained alongside the Mishe API implementation. The OpenAPI contract is available at [`api/openapi.yaml`](https://github.com/troubleman96/MISHE/blob/main/api/openapi.yaml).

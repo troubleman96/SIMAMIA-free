@@ -1,13 +1,13 @@
 ---
 title: Authentication
-description: Use Camel Accounts OAuth access tokens to call protected Simamia endpoints.
+description: Use Camel Accounts OAuth access tokens to call protected Mishe endpoints.
 ---
 
 # Authentication
 
 ## Token issuer
 
-Simamia uses Camel Accounts as its identity provider. The production issuer is `https://accounts.camelcreatives.com`. The app obtains an OAuth access token with its public client and sends that token to the API as a bearer credential.
+Mishe uses Camel Accounts as its identity provider. The production issuer is `https://accounts.camelcreatives.com`. The app obtains an OAuth access token with its public client and sends that token to the API as a bearer credential.
 
 ```http
 Authorization: Bearer <access-token>
@@ -45,7 +45,7 @@ Business membership and roles are not implemented. A second staff member with a 
 
 ## Browser CORS
 
-The app uses cross-origin requests from `https://app.simamia.online` to `https://api.simamia.online`. The server reads `CORS_ALLOWED_ORIGINS` as a comma-separated list of exact origins. Configure production with the app origin, including scheme and without a trailing slash. An unset allowlist permits `*` for local development and should not be used as a production configuration.
+The app uses cross-origin requests from `https://app.mishe.online` to `https://api.mishe.online`. The server reads `CORS_ALLOWED_ORIGINS` as a comma-separated list of exact origins. Configure production with the app origin, including scheme and without a trailing slash. An unset allowlist permits `*` for local development and should not be used as a production configuration.
 
 Preflight requests are answered with allowed methods `GET, POST, PATCH, DELETE, OPTIONS` and headers `Content-Type, Authorization, X-Request-ID`.
 

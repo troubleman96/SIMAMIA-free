@@ -90,8 +90,8 @@ func (a *API) adminHealth(w http.ResponseWriter, r *http.Request, rid string) {
 }
 
 func (a *API) authorizeAdmin(w http.ResponseWriter, r *http.Request, rid string) bool {
-	expected := strings.TrimSpace(os.Getenv("SIMAMIA_ADMIN_TOKEN"))
-	provided := r.Header.Get("X-Simamia-Admin-Key")
+	expected := strings.TrimSpace(os.Getenv("MISHE_ADMIN_TOKEN"))
+	provided := r.Header.Get("X-Mishe-Admin-Key")
 	if len(expected) < 32 {
 		a.fail(w, r, rid, http.StatusServiceUnavailable, "ADMIN_DISABLED", "Admin API is not configured", nil)
 		return false
@@ -163,7 +163,7 @@ func (a *API) adminAccounts(w http.ResponseWriter, r *http.Request, rid string, 
 		}
 		account, ok := a.adminAccount(owner)
 		if !ok {
-			a.fail(w, r, rid, http.StatusNotFound, "NOT_FOUND", "Simamia account not found", nil)
+			a.fail(w, r, rid, http.StatusNotFound, "NOT_FOUND", "Mishe account not found", nil)
 			return
 		}
 		a.write(w, http.StatusOK, account, rid, nil)
@@ -487,9 +487,9 @@ func (a *API) adminAudit(w http.ResponseWriter, r *http.Request, rid string) {
 }
 
 func (a *API) audit(r *http.Request, action, resource, id, owner string, fields []string) {
-	actor := strings.TrimSpace(os.Getenv("SIMAMIA_ADMIN_ACTOR"))
+	actor := strings.TrimSpace(os.Getenv("MISHE_ADMIN_ACTOR"))
 	if actor == "" {
-		actor = "simamia-admin"
+		actor = "mishe-admin"
 	}
 	encoded, _ := json.Marshal(fields)
 	if _, err := a.store.db.Exec(`INSERT INTO admin_audit(actor,action,resource,record_id,owner_sub,occurred_at,changed_fields) VALUES(?,?,?,?,?,?,?)`, actor, action, resource, id, owner, time.Now().UTC().Format(time.RFC3339), string(encoded)); err != nil {

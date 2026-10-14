@@ -20,8 +20,8 @@ Replace `{resource}` with a supported collection name and `{id}` with a server-i
 ## List, search, filter, and paginate
 
 ```bash
-curl --get "$SIMAMIA_API/orders" \
-  -H "Authorization: Bearer $SIMAMIA_TOKEN" \
+curl --get "$MISHE_API/orders" \
+  -H "Authorization: Bearer $MISHE_TOKEN" \
   --data-urlencode 'q=asha' \
   --data-urlencode 'status=In progress' \
   --data-urlencode 'page=1' \
@@ -33,8 +33,8 @@ Search is a lowercase substring match over all JSON fields in each account-owned
 ## Read one record
 
 ```bash
-curl "$SIMAMIA_API/customers/CUS-0087" \
-  -H "Authorization: Bearer $SIMAMIA_TOKEN"
+curl "$MISHE_API/customers/CUS-0087" \
+  -H "Authorization: Bearer $MISHE_TOKEN"
 ```
 
 An unknown ID and an ID owned by another subject both return `404 NOT_FOUND`.
@@ -42,8 +42,8 @@ An unknown ID and an ID owned by another subject both return `404 NOT_FOUND`.
 ## Patch a record
 
 ```bash
-curl -X PATCH "$SIMAMIA_API/orders/ORD-0248" \
-  -H "Authorization: Bearer $SIMAMIA_TOKEN" \
+curl -X PATCH "$MISHE_API/orders/ORD-0248" \
+  -H "Authorization: Bearer $MISHE_TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"status":"Ready","paid":25000}'
 ```
@@ -53,8 +53,8 @@ Patches are shallow merges. For example, changing `status` preserves other value
 ## Delete a record
 
 ```bash
-curl -X DELETE "$SIMAMIA_API/customers/CUS-0087" \
-  -H "Authorization: Bearer $SIMAMIA_TOKEN"
+curl -X DELETE "$MISHE_API/customers/CUS-0087" \
+  -H "Authorization: Bearer $MISHE_TOKEN"
 ```
 
 Delete is permanent. Deleting a customer or service does not update orders that contain its name.

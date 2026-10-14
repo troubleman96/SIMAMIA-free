@@ -16,8 +16,8 @@ Team rows are currently directory records. They are not API identities and do no
 `name` and `phone` are required. Phone formatting is not checked by the API.
 
 ```bash
-curl -X POST "$SIMAMIA_API/team" \
-  -H "Authorization: Bearer $SIMAMIA_TOKEN" \
+curl -X POST "$MISHE_API/team" \
+  -H "Authorization: Bearer $MISHE_TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"name":"Neema John","phone":"+255 713 222 333","role":"Technician","active":true}'
 ```
@@ -27,16 +27,16 @@ Extra properties like `role`, `active`, or `commissionRate` may be stored becaus
 ## List, update, and delete
 
 ```bash
-curl "$SIMAMIA_API/team?q=technician&page=1&page_size=20" \
-  -H "Authorization: Bearer $SIMAMIA_TOKEN"
+curl "$MISHE_API/team?q=technician&page=1&page_size=20" \
+  -H "Authorization: Bearer $MISHE_TOKEN"
 
-curl -X PATCH "$SIMAMIA_API/team/TM-0005" \
-  -H "Authorization: Bearer $SIMAMIA_TOKEN" \
+curl -X PATCH "$MISHE_API/team/TM-0005" \
+  -H "Authorization: Bearer $MISHE_TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"role":"Senior technician"}'
 
-curl -X DELETE "$SIMAMIA_API/team/TM-0005" \
-  -H "Authorization: Bearer $SIMAMIA_TOKEN"
+curl -X DELETE "$MISHE_API/team/TM-0005" \
+  -H "Authorization: Bearer $MISHE_TOKEN"
 ```
 
 Patch validation checks the merged row, so it can omit `name` and `phone` if those already exist.

@@ -14,8 +14,8 @@ Service catalog records describe work offered by a business. `name` and a positi
 ## Create a service
 
 ```bash
-curl -X POST "$SIMAMIA_API/services" \
-  -H "Authorization: Bearer $SIMAMIA_TOKEN" \
+curl -X POST "$MISHE_API/services" \
+  -H "Authorization: Bearer $MISHE_TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"name":"Wash and fold","category":"Laundry","duration":"24 hours","price":25000}'
 ```
@@ -34,16 +34,16 @@ Price is a plain numeric amount. The API does not currently support tax, discoun
 ## List, update, and delete
 
 ```bash
-curl "$SIMAMIA_API/services?q=laundry&page=1&page_size=50" \
-  -H "Authorization: Bearer $SIMAMIA_TOKEN"
+curl "$MISHE_API/services?q=laundry&page=1&page_size=50" \
+  -H "Authorization: Bearer $MISHE_TOKEN"
 
-curl -X PATCH "$SIMAMIA_API/services/SRV-01" \
-  -H "Authorization: Bearer $SIMAMIA_TOKEN" \
+curl -X PATCH "$MISHE_API/services/SRV-01" \
+  -H "Authorization: Bearer $MISHE_TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"price":28000,"active":false}'
 
-curl -X DELETE "$SIMAMIA_API/services/SRV-01" \
-  -H "Authorization: Bearer $SIMAMIA_TOKEN"
+curl -X DELETE "$MISHE_API/services/SRV-01" \
+  -H "Authorization: Bearer $MISHE_TOKEN"
 ```
 
 The API does not verify that an order's `service` value references a current service record. Existing order values remain unchanged if a service is renamed or deleted.

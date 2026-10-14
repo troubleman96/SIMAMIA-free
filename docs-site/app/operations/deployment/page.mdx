@@ -1,22 +1,22 @@
 ---
 title: Deployment
-description: Run and update the API with the Simamia production Compose topology.
+description: Run and update the API with the Mishe production Compose topology.
 ---
 
 # Deployment
 
-The API is normally deployed with the landing website and app from the Simamia repository. The root Compose file builds the Go API image and mounts its SQLite file in the persistent `simamia_data` volume.
+The API is normally deployed with the landing website and app from the Mishe repository. The root Compose file builds the Go API image and mounts its SQLite file in the persistent `mishe_data` volume.
 
 ## Standalone server with Caddy
 
-Point `simamia.online`, `app.simamia.online`, and `api.simamia.online` to the server, open inbound ports 80/443, then from the Simamia repo root:
+Point `mishe.online`, `app.mishe.online`, and `api.mishe.online` to the server, open inbound ports 80/443, then from the Mishe repo root:
 
 ```bash
 cp .env.server.example .env
 # Review .env and configure production origins.
 docker compose up -d --build
 docker compose ps
-curl https://api.simamia.online/api/v1/health
+curl https://api.mishe.online/api/v1/health
 ```
 
 Caddy routes the API host to the internal `api:8080` service and obtains TLS certificates automatically.
@@ -29,7 +29,7 @@ When an existing Nginx service owns ports 80 and 443, use the VPS Compose overri
 docker compose -f compose.yaml -f deploy/compose.vps.yaml up -d --build
 ```
 
-Configure the host Nginx and certificates using `deploy/nginx-simamia.conf` and the instructions in the monorepo deployment guide. Do not bind the standalone Caddy profile on that host.
+Configure the host Nginx and certificates using `deploy/nginx-mishe.conf` and the instructions in the monorepo deployment guide. Do not bind the standalone Caddy profile on that host.
 
 ## Update a running deployment
 
@@ -38,7 +38,7 @@ Before an update, take and verify an off-server database backup. Then pull the r
 ```bash
 docker compose up -d --build
 docker compose ps
-curl https://api.simamia.online/api/v1/health
+curl https://api.mishe.online/api/v1/health
 ```
 
 For an existing Nginx VPS, use the same Compose override used at initial deployment.

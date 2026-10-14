@@ -16,8 +16,8 @@ Expenses track outflows recorded by a business. The endpoint does not calculate 
 Required: a non-empty `description`, `category`, and `date`, plus a positive `amount`.
 
 ```bash
-curl -X POST "$SIMAMIA_API/expenses" \
-  -H "Authorization: Bearer $SIMAMIA_TOKEN" \
+curl -X POST "$MISHE_API/expenses" \
+  -H "Authorization: Bearer $MISHE_TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"description":"Laundry detergent","category":"Supplies","amount":85000,"date":"2026-10-11","method":"Cash","notes":"Two cartons"}'
 ```
@@ -35,8 +35,8 @@ The API checks that `date` is not empty but does not parse or normalize its form
 ## List and filter
 
 ```bash
-curl --get "$SIMAMIA_API/expenses" \
-  -H "Authorization: Bearer $SIMAMIA_TOKEN" \
+curl --get "$MISHE_API/expenses" \
+  -H "Authorization: Bearer $MISHE_TOKEN" \
   --data-urlencode 'q=supplies' --data-urlencode 'page=1' --data-urlencode 'page_size=20'
 ```
 
@@ -45,11 +45,11 @@ The generic `status` filter only matches a `status` property if present. There i
 ## Update and delete
 
 ```bash
-curl -X PATCH "$SIMAMIA_API/expenses/EXP-0001" \
-  -H "Authorization: Bearer $SIMAMIA_TOKEN" \
+curl -X PATCH "$MISHE_API/expenses/EXP-0001" \
+  -H "Authorization: Bearer $MISHE_TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"amount":82000,"notes":"Supplier discount applied"}'
 
-curl -X DELETE "$SIMAMIA_API/expenses/EXP-0001" \
-  -H "Authorization: Bearer $SIMAMIA_TOKEN"
+curl -X DELETE "$MISHE_API/expenses/EXP-0001" \
+  -H "Authorization: Bearer $MISHE_TOKEN"
 ```
