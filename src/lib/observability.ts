@@ -28,7 +28,7 @@ export function logClientEvent(level: LogLevel, event: string, context: LogConte
   const entry = {
     timestamp: new Date().toISOString(),
     level,
-    service: 'simamia-app',
+    service: 'mishe-app',
     event,
     ...safeContext(context)
   };
@@ -40,7 +40,7 @@ export function logClientEvent(level: LogLevel, event: string, context: LogConte
   }
 
   Sentry.addBreadcrumb({
-    category: 'simamia',
+    category: 'mishe',
     level: level === 'warn' ? 'warning' : level,
     message: event,
     data: safeContext(context)
